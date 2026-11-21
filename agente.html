@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Agente de seguridad industrial · riesgos por foto</title>
+<style>
+  :root{--bg:#070b10;--pn:#0d141b;--pn2:#111b24;--ln:#1c2833;--acc:#4cc9f0;--txt:#dbe7f0;--dim:#7d8b97;--ok:#3ee08f;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  button{font:inherit;cursor:pointer}
+  .hidden,[hidden]{display:none!important}
+  .chip{display:inline-block;font:600 11px/1 var(--mono);padding:4px 6px;border-radius:4px;color:#071018;letter-spacing:.03em}
+  .lvl{display:inline-block;font-weight:700;padding:4px 10px;border-radius:20px;color:#071018}
+  /* ---------- informe (compartido) ---------- */
+  .ph{position:relative;display:inline-block;max-width:100%;line-height:0}
+  .ph img{max-width:100%;display:block;border-radius:6px}
+  .mk{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;
+      font:700 13px/1 var(--mono);color:#071018;box-shadow:0 0 0 3px rgba(0,0,0,.45),0 0 14px rgba(0,0,0,.6);line-height:1}
+  .mk.pulse{animation:pulse 1.4s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 3px rgba(0,0,0,.45),0 0 0 0 rgba(255,255,255,.7)}100%{box-shadow:0 0 0 3px rgba(0,0,0,.45),0 0 0 16px rgba(255,255,255,0)}}
+  .fds{list-style:none;margin:0;padding:0}
+  .fd{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
+  .fd .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 13px var(--mono);color:#071018}
+  .fd h4{margin:0 0 3px;font-size:15px}
+  .fd .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:5px}
+  .fd .g{font:600 11px var(--mono);color:var(--dim)} .fd .g.grave{color:#ffb547} .fd .g.muy_grave{color:#ff5a5a}
+  .fd p{margin:2px 0;color:#c3d2de;font-size:13px}
+  .fd p b{color:var(--dim);font-weight:600}
+  .fd .nrm{font-family:var(--mono);font-size:12px;color:#9fc6dc}
+  .oks{margin:6px 0 0;padding-left:18px;color:#b9e9cf;font-size:13px}
+  .disc{font-size:11.5px;color:var(--dim);margin-top:10px}
+
+  /* =================== MÓVIL DEL ALUMNO =================== */
+  body.m-phone{padding:0 0 30px}
+  .pTop{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(7,11,16,.95);border-bottom:1px solid var(--ln)}
+  .pTop b{font-size:15px} .pTop span{color:var(--acc)}
+  .dot{width:9px;height:9px;border-radius:50%;background:#55606b;margin-left:auto;flex:none} .dot.on{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+  .pWrap{padding:16px 14px;max-width:560px;margin:0 auto}
+  .pIntro{color:#b8c7d3;margin:4px 0 14px}
+  .areas{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px}
+  .pName{width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--ln);background:var(--pn);color:var(--txt);font:inherit;margin-bottom:12px}
+  .bigBtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:18px;border-radius:12px;border:0;background:var(--acc);color:#04131c;font-size:18px;font-weight:700}
+  .bigBtn.alt{background:var(--pn2);color:var(--txt);border:1px solid var(--ln);font-size:15px;padding:13px}
+  .bigBtn svg{width:24px;height:24px}
+  .vf{position:relative;margin:4px 0 12px;border-radius:10px;overflow:hidden;background:#000}
+  .vf video{width:100%;max-height:60vh;display:block;object-fit:cover}
+  .vfh{position:absolute;left:0;right:0;bottom:0;padding:8px;text-align:center;font-size:13px;background:rgba(0,0,0,.5)}
+  .help{border-color:#ffb547;font-size:14px} .help b{color:#ffd79a} .help ol{margin:6px 0 0;padding-left:20px} .help li{margin:3px 0}
+  .prev{margin:14px 0;text-align:center}
+  .prev img{max-width:100%;max-height:52vh;border-radius:8px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .card{background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:14px;margin-top:14px}
+  .st{text-align:center;padding:26px 10px}
+  .st .big{font-size:20px;font-weight:700;margin-bottom:6px}
+  .spin{width:46px;height:46px;border-radius:50%;border:4px solid var(--ln);border-top-color:var(--acc);animation:sp 1s linear infinite;margin:0 auto 14px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .scanSteps{list-style:none;padding:0;margin:12px auto 0;max-width:280px;text-align:left;color:var(--dim);font-size:13px}
+  .scanSteps li{padding:3px 0} .scanSteps li.on{color:var(--txt)} .scanSteps li.on:before{content:"▸ ";color:var(--acc)} .scanSteps li.done{color:var(--ok)} .scanSteps li.done:before{content:"✓ "}
+  .resHd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .resHd h3{margin:0;font-size:17px}
+  .scene{color:#b8c7d3;font-size:13px;margin:0 0 10px}
+  .sum{font-size:15px;margin:10px 0}
+  .sim{display:inline-block;background:#ffb547;color:#1b1203;font:700 11px var(--mono);padding:3px 6px;border-radius:4px}
+  .err{color:#ff8a8a}
+
+  /* =================== PANTALLA DEL PONENTE =================== */
+  body.m-main{height:100vh;overflow:hidden;display:grid;grid-template-rows:auto 1fr;grid-template-columns:300px 1fr 330px}
+  header.top{grid-column:1/-1;display:flex;align-items:center;gap:22px;padding:12px 18px;border-bottom:1px solid var(--ln);background:linear-gradient(#0b1219,#070b10)}
+  header.top h1{margin:0;font-size:19px;font-weight:700;letter-spacing:.01em} header.top h1 span{color:var(--acc);font-weight:500}
+  .kpis{display:flex;gap:18px;margin-left:auto;font-family:var(--mono)}
+  .kpi{text-align:right} .kpi b{display:block;font-size:22px;line-height:1.1} .kpi small{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}
+  .kpi.live b{color:var(--ok)}
+  aside,main,section.feed{overflow:auto;min-height:0}
+  aside.left{border-right:1px solid var(--ln);padding:14px;background:var(--pn)}
+  section.feed{border-left:1px solid var(--ln);background:var(--pn);padding:10px}
+  .sec{font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin:16px 0 8px;display:flex;justify-content:space-between}
+  .sec:first-child{margin-top:0}
+  .qrS{display:flex;gap:10px;align-items:center;cursor:pointer}
+  .qrS #qrSmall svg{width:96px;height:96px;background:#fff;border-radius:4px;display:block}
+  .qrS div:last-child{font-size:12px;color:#b8c7d3} .qrS small{display:block;color:var(--dim);font-family:var(--mono);font-size:10.5px;word-break:break-all;margin-top:4px}
+  .bars .br{display:grid;grid-template-columns:44px 1fr 28px;gap:8px;align-items:center;margin:5px 0;font:12px var(--mono)}
+  .bars .tr{height:12px;background:var(--pn2);border-radius:3px;overflow:hidden} .bars .tr i{display:block;height:100%;width:0;transition:width .6s}
+  .bars .br span:last-child{text-align:right}
+  .lv{display:flex;height:16px;border-radius:4px;overflow:hidden;background:var(--pn2)} .lv i{display:block;height:100%;transition:width .6s}
+  .lvl-leg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:11px;color:var(--dim)} .lvl-leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+  .btn{width:100%;padding:9px 10px;border-radius:6px;border:1px solid var(--ln);background:var(--pn2);color:var(--txt);text-align:left;margin-top:8px}
+  .btn.acc{border-color:var(--acc);background:rgba(76,201,240,.12)}
+  .btn kbd{float:right;font:11px var(--mono);color:var(--dim)}
+  details.cfg{margin-top:12px;font-size:12.5px} details.cfg summary{cursor:pointer;color:var(--dim)}
+  details.cfg label{display:block;margin-top:8px;color:var(--dim)}
+  details.cfg input,details.cfg select{width:100%;margin-top:3px;padding:7px 8px;border-radius:5px;border:1px solid var(--ln);background:#060a0e;color:var(--txt);font:12px var(--mono)}
+  details.cfg label.chk{display:flex;gap:8px;align-items:center;color:var(--txt)} details.cfg label.chk input{width:auto;margin:0}
+  .mode{margin-top:10px;font-size:12px;padding:8px;border-radius:6px;border:1px dashed var(--ln)} .mode.sim{border-color:#ffb547;color:#ffd79a} .mode.real{border-color:var(--ok);color:#b9e9cf}
+  main.stage{padding:18px 22px;display:flex;flex-direction:column;min-width:0}
+  .empty{margin:auto;text-align:center;color:var(--dim);max-width:520px}
+  .empty h2{color:var(--txt);font-size:26px;margin:0 0 10px}
+  .areas.big{justify-content:center;margin-top:16px}
+  .areas.big .chip{font-size:13px;padding:6px 9px}
+  .feat{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;min-height:0;flex:1}
+  .feat .lcol{min-height:0;display:flex;flex-direction:column}
+  .feat .ph img{max-height:calc(100vh - 210px);object-fit:contain}
+  .feat .rcol{overflow:auto;min-height:0;padding-right:4px}
+  .fhd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .fhd h2{margin:0;font-size:22px}
+  .fhd .who{color:var(--dim);font-family:var(--mono);font-size:12px}
+  .feat .sum{font-size:17px}
+  .feat .fd h4{font-size:16px}
+  .feat .fd p{font-size:14px}
+  .item{display:grid;grid-template-columns:64px 1fr;gap:10px;padding:8px;border-radius:8px;border:1px solid transparent;cursor:pointer;margin-bottom:6px;background:var(--pn2)}
+  .item.sel{border-color:var(--acc)}
+  .item img{width:64px;height:64px;object-fit:cover;border-radius:5px;display:block}
+  .item .t{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .s{font-size:12px;color:var(--dim);margin-top:2px}
+  .item .cs{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px} .item .cs .chip{font-size:10px;padding:2px 4px}
+  .item.q{opacity:.65}
+  .pill{font:600 10.5px var(--mono);padding:2px 6px;border-radius:10px;background:var(--ln);color:var(--txt)} .pill.run{background:var(--acc);color:#04131c;animation:bl 1s infinite} @keyframes bl{50%{opacity:.5}}
+  #qrBig{position:fixed;inset:0;z-index:30;background:rgba(4,8,12,.94);display:grid;place-items:center;cursor:pointer}
+  #qrBig .qb{text-align:center}
+  #qrBig .qt{font-size:34px;font-weight:700;margin-bottom:6px}
+  #qrBig .qd{font-size:17px;color:#b8c7d3;margin-bottom:18px}
+  #qrBigSvg svg{width:min(54vh,460px);height:min(54vh,460px);background:#fff;padding:14px;border-radius:12px;display:block;margin:0 auto}
+  #qrBig .qu{margin-top:14px;font:15px var(--mono);color:#9fc6dc;word-break:break-all;max-width:80vw}
+  #qrBig .qs{margin-top:8px;font-size:20px} #qrBig .qs b{color:var(--acc)} #qrBig .qs span{color:var(--ok)}
+  #qrBig .qh{margin-top:14px;font-size:12px;color:var(--dim)}
+  body.m-main .pOnly,body.m-phone .mOnly{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- =================== PANTALLA DEL PONENTE =================== -->
+<header class="top mOnly">
+  <h1>Agente de seguridad industrial <span>· riesgos en una foto</span></h1>
+  <div class="kpis">
+    <div class="kpi live"><b id="kOn">0</b><small>móviles</small></div>
+    <div class="kpi"><b id="kIn">0</b><small>fotos</small></div>
+    <div class="kpi"><b id="kQ">0</b><small>en cola</small></div>
+    <div class="kpi"><b id="kOk">0</b><small>analizadas</small></div>
+    <div class="kpi"><b id="kF">0</b><small>riesgos</small></div>
+  </div>
+</header>
+<aside class="left mOnly">
+  <div class="sec"><span>Participa</span><span id="salaTxt"></span></div>
+  <div class="qrS" id="qrSmallBox"><div id="qrSmall"></div><div>Escanea, fotografía la imagen de la pantalla y el agente te devuelve su informe.<small id="qrURLs"></small></div></div>
+  <button class="btn acc" id="bQR">Mostrar QR grande <kbd>Q</kbd></button>
+  <div class="sec"><span>Riesgos detectados por área</span></div>
+  <div class="bars" id="bars"></div>
+  <div class="sec"><span>Nivel global de las fotos</span></div>
+  <div class="lv" id="lvBar"></div>
+  <div class="lvl-leg" id="lvLeg"></div>
+  <div class="sec"><span>Ponente</span></div>
+  <button class="btn" id="bLocal">Analizar una foto desde aquí <kbd>A</kbd></button>
+  <input type="file" id="fLocal" accept="image/*" hidden>
+  <div class="mode" id="modeBox"></div>
+  <details class="cfg"><summary>Ajustes</summary>
+    <label>Clave de la API de Claude (solo se guarda en este navegador)<input type="password" id="sKey" placeholder="sk-ant-…" autocomplete="off"></label>
+    <label>Modelo<input id="sModel" spellcheck="false"></label>
+    <label>Análisis simultáneos<select id="sPar"><option>2</option><option>3</option><option>4</option><option>6</option><option>8</option></select></label>
+    <label class="chk"><input type="checkbox" id="sMarks"> Marcar los riesgos sobre la foto (posición aproximada)</label>
+    <label>Sala de esta actividad<input id="sSala" maxlength="12" spellcheck="false"></label>
+    <button class="btn" id="bTest">Probar la clave</button><div class="disc" id="testOut"></div>
+    <button class="btn" id="bClear">Vaciar el panel (fotos y resultados)</button>
+  </details>
+  <div class="disc">Atajos: <b>Q</b> QR · <b>A</b> analizar foto · <b>←/→</b> recorrer resultados · <b>Espacio</b> seguir el último</div>
+</aside>
+<main class="stage mOnly" id="stage">
+  <div class="empty" id="emptyBox">
+    <h2>Fotografía la imagen de la pantalla</h2>
+    <div>El agente revisa la foto como lo haría un técnico en una visita: busca riesgos visibles, los clasifica por reglamento, indica su gravedad y propone qué hacer.</div>
+    <div class="areas big" id="areasBig"></div>
+  </div>
+  <div class="feat hidden" id="feat"></div>
+</main>
+<section class="feed mOnly">
+  <div class="sec"><span>Fotos recibidas</span><span id="feedN"></span></div>
+  <div id="feed"></div>
+</section>
+<div id="qrBig" class="mOnly" hidden><div class="qb">
+  <div class="qt">Agente de seguridad industrial</div>
+  <div class="qd">Escanea el código y fotografía la imagen que aparece en la pantalla</div>
+  <div id="qrBigSvg"></div>
+  <div class="qu" id="qrURLb"></div>
+  <div class="qs">Sala <b id="qrSala"></b> · <span id="qrCount"></span></div>
+  <div class="qh">Pulsa Q o haz clic para cerrar</div>
+</div></div>
+
+<!-- =================== MÓVIL DEL ALUMNO =================== -->
+<div class="pTop pOnly"><b>Agente de seguridad industrial <span>· IA</span></b><i class="dot" id="pDot"></i></div>
+<div class="pWrap pOnly">
+  <div id="pHome">
+    <p class="pIntro">Haz una foto de la imagen que aparece en la pantalla. El agente buscará riesgos de:</p>
+    <div class="areas" id="areasP"></div>
+    <input class="pName" id="pName" maxlength="24" placeholder="Tu nombre (opcional)" autocomplete="given-name">
+    <div id="pPick">
+      <button class="bigBtn" id="pCam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="4"/></svg>Fotografiar</button>
+      <label class="bigBtn alt" for="pFile" style="margin-top:10px">Elegir una foto de la galería</label>
+      <input type="file" id="pFile" accept="image/*" hidden>
+    </div>
+    <div class="card help" id="pHelp" hidden></div>
+    <div id="pCamBox" hidden>
+      <div class="vf"><video id="pVid" autoplay playsinline muted></video><div class="vfh">Encuadra la imagen de la pantalla</div></div>
+      <div class="row2"><button class="bigBtn alt" id="pCamX">Cancelar</button><button class="bigBtn" id="pShot">Capturar</button></div>
+    </div>
+    <div class="prev" id="pPrev" hidden><img id="pPrevImg" alt="Foto a analizar"></div>
+    <div class="row2" id="pPrevBtns" hidden><button class="bigBtn alt" id="pRedo">Repetir</button><button class="bigBtn" id="pSend">Analizar</button></div>
+  </div>
+  <div class="card st" id="pWait" hidden>
+    <div class="spin"></div><div class="big" id="pWaitT">Enviando…</div><div id="pWaitS" style="color:var(--dim)"></div>
+    <ul class="scanSteps" id="pSteps"><li>Protección contra incendios</li><li>Baja tensión</li><li>Alta tensión</li><li>Gas</li><li>Equipos a presión</li><li>Redactando el informe</li></ul>
+  </div>
+  <div id="pRes" hidden></div>
+  <div class="card" id="pErr" hidden><div class="err" id="pErrT"></div><button class="bigBtn alt" id="pRetry" style="margin-top:12px">Volver a intentarlo</button></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const Q = new URLSearchParams(location.search);
+const MODE = Q.has('m') ? 'phone' : 'main';
+document.body.classList.add('m-' + MODE);
+const store = {
+  get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const DEF_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+const BROKER = Q.get('b') || DEF_BROKER;
+const cleanSala = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+const newSala = () => 'RIESGO' + Math.floor(100 + Math.random()*900);
+const SALA = cleanSala(Q.get('sala')) || (MODE === 'main' ? cleanSala(store.get('agente-sala', '')) || newSala() : '');
+if (MODE === 'main') store.set('agente-sala', SALA);
+const BASE = `agente-riesgos/${SALA}`;
+const UID = (() => { let u = store.get('agente-uid', ''); if (!u) { u = Math.random().toString(36).slice(2, 10); store.set('agente-uid', u); } return u; })();
+
+const AREAS = {
+  pci:{ s:'PCI', n:'Protección contra incendios', c:'#ff5a5a' },
+  bt:{ s:'BT', n:'Baja tensión', c:'#ffd23f' },
+  at:{ s:'AT', n:'Alta tensión', c:'#b07cff' },
+  gas:{ s:'GAS', n:'Gas', c:'#ff9f43' },
+  presion:{ s:'EP', n:'Equipos a presión', c:'#4cc9f0' },
+  otros:{ s:'OTR', n:'Otros riesgos', c:'#9fb1c0' },
+};
+const LEVELS = {
+  sin_riesgos:{ n:'Sin riesgos visibles', c:'#3ee08f' }, bajo:{ n:'Riesgo bajo', c:'#9be15d' }, medio:{ n:'Riesgo medio', c:'#ffb547' },
+  alto:{ n:'Riesgo alto', c:'#ff7a45' }, critico:{ n:'Riesgo crítico', c:'#ff3b3b' },
+};
+const GRAV = { leve:'Leve', grave:'Grave', muy_grave:'Muy grave' };
+const GORD = { muy_grave:0, grave:1, leve:2 };
+const areaChip = a => { const A = AREAS[a] || AREAS.otros; return `<span class="chip" style="background:${A.c}" title="${esc(A.n)}">${A.s}</span>`; };
+const areaChipsLong = () => Object.entries(AREAS).filter(([k]) => k !== 'otros').map(([, A]) => `<span class="chip" style="background:${A.c}">${A.n}</span>`).join('');
+
+/* ---------- informe ---------- */
+function reportHTML(r, img, { marks = true, sim = false, big = false } = {}) {
+  if (!r) return '';
+  if (r.valida === false) return `<div class="resHd"><h3>No he podido analizar esta foto</h3></div><p class="scene">${esc(r.escena)}</p><p class="sum">${esc(r.resumen || 'Prueba a fotografiar de nuevo la imagen de la pantalla, más de cerca y sin reflejos.')}</p>`;
+  const L = LEVELS[r.nivel_global] || LEVELS.medio;
+  const hs = [...(r.hallazgos || [])].sort((a, b) => (GORD[a.gravedad] ?? 3) - (GORD[b.gravedad] ?? 3));
+  const mk = marks && img ? hs.map((h, i) => (typeof h.x === 'number' && typeof h.y === 'number' && h.x >= 0 && h.x <= 1 && h.y >= 0 && h.y <= 1)
+    ? `<span class="mk${big ? ' pulse' : ''}" style="left:${(h.x*100).toFixed(1)}%;top:${(h.y*100).toFixed(1)}%;background:${(AREAS[h.area] || AREAS.otros).c}">${i + 1}</span>` : '').join('') : '';
+  const photo = img ? `<div class="ph"><img src="${img}" alt="Foto analizada">${mk}</div>` : '';
+  const list = hs.map((h, i) => { const A = AREAS[h.area] || AREAS.otros; return `<li class="fd"><span class="n" style="background:${A.c}">${i + 1}</span><div>
+      <div class="meta">${areaChip(h.area)}<span class="g ${esc(h.gravedad)}">${esc(GRAV[h.gravedad] || h.gravedad)}</span></div>
+      <h4>${esc(h.titulo)}</h4>
+      <p><b>Qué se ve:</b> ${esc(h.evidencia)}</p>
+      <p><b>Qué hacer:</b> ${esc(h.accion)}</p>
+      ${h.normativa ? `<p class="nrm">${esc(h.normativa)}</p>` : ''}</div></li>`; }).join('');
+  const oks = (r.correctos || []).length ? `<div class="sec" style="margin-top:14px"><span>Lo que está bien</span></div><ul class="oks">${r.correctos.map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : '';
+  return { photo, body:`<div class="resHd"><span class="lvl" style="background:${L.c}">${L.n}</span>${sim ? '<span class="sim">SIMULADO · ensayo sin IA</span>' : ''}<span style="color:var(--dim);font-size:12px">${hs.length} ${hs.length === 1 ? 'riesgo' : 'riesgos'}</span></div>
+    <p class="scene">${esc(r.escena)}</p><p class="sum">${esc(r.resumen)}</p>
+    <ul class="fds">${list || '<li class="fd"><span></span><div>No se aprecian riesgos en lo que se ve en la foto.</div></li>'}</ul>${oks}
+    ${r.limitaciones ? `<p class="disc"><b>Limitaciones:</b> ${esc(r.limitaciones)}</p>` : ''}
+    <p class="disc">Evaluación orientativa hecha por una IA a partir de una sola foto. No sustituye a una inspección reglamentaria ni al criterio de un técnico competente.</p>` };
+}
+
+/* ---------- imagen: reducir para enviarla ---------- */
+async function toJpeg(src, maxSide = 1280, q = .78) {
+  const bmp = src instanceof HTMLVideoElement ? src : await createImageBitmap(src);
+  const w0 = bmp.videoWidth || bmp.width, h0 = bmp.videoHeight || bmp.height;
+  const k = Math.min(1, maxSide / Math.max(w0, h0));
+  const c = document.createElement('canvas'); c.width = Math.round(w0*k); c.height = Math.round(h0*k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  let url = c.toDataURL('image/jpeg', q);
+  if (url.length > 600000) url = c.toDataURL('image/jpeg', .6);
+  return url;
+}
+
+/* ---------- MQTT ---------- */
+let mq = null, mqOn = false;
+function connect(onConnect, onMsg, onState) {
+  if (!window.mqtt) { onState && onState(false, 'Sin conexión (no se cargó la librería)'); return; }
+  mq = mqtt.connect(BROKER, { clientId:(MODE === 'main' ? 'ag-' : 'agp-') + Math.random().toString(16).slice(2, 10), keepalive:30, reconnectPeriod:3000, clean:true });
+  mq.on('connect', () => { mqOn = true; onState && onState(true); onConnect(); });
+  mq.on('close', () => { mqOn = false; onState && onState(false); });
+  mq.on('message', (t, p) => { let m; try { m = JSON.parse(p.toString()); } catch (e) { return; } onMsg(t, m); });
+}
+const pub = (t, m, o) => { if (mqOn) mq.publish(t, JSON.stringify(m), o || { qos:1 }); };
+
+/* =========================================================================
+   MÓVIL DEL ALUMNO
+   ========================================================================= */
+if (MODE === 'phone') {
+  $('areasP').innerHTML = areaChipsLong();
+  $('pName').value = store.get('agente-name', '');
+  let img = null, cur = null, stepTimer = null;
+  const show = id => ['pHome', 'pWait', 'pRes', 'pErr'].forEach(k => $(k).hidden = k !== id);
+  const steps = on => {
+    clearInterval(stepTimer); const li = [...$('pSteps').children]; li.forEach(l => l.className = '');
+    if (!on) return; let i = 0; li[0].className = 'on';
+    stepTimer = setInterval(() => { if (i < li.length - 1) { li[i].className = 'done'; li[++i].className = 'on'; } }, 2600);
+  };
+  if (!SALA) { show('pErr'); $('pErrT').textContent = 'Falta la sala en el enlace. Vuelve a escanear el código QR de la pantalla.'; $('pRetry').hidden = true; }
+  const showPrev = () => { $('pPick').hidden = true; $('pHelp').hidden = true; $('pPrevImg').src = img; $('pPrev').hidden = false; $('pPrevBtns').hidden = false;
+    $('pPrev').scrollIntoView({ behavior:'smooth', block:'start' }); };
+  $('pFile').onchange = async () => {
+    const f = $('pFile').files[0]; $('pFile').value = ''; if (!f) return;
+    try { img = await toJpeg(f); } catch (e) { alert('No se pudo leer la foto.'); return; }
+    closeCam(); showPrev();
+  };
+  /* Cámara dentro de la página: pide el permiso de forma explícita y, si no hay acceso, explica cómo resolverlo */
+  let stream = null;
+  const UA = navigator.userAgent, isIOS = /iPhone|iPad|iPod/i.test(UA), inApp = /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)|GSA\//i.test(UA);
+  function help(kind) {
+    const open = isIOS ? 'Safari' : 'Chrome';
+    let h = '<b>El navegador no tiene acceso a la cámara.</b><br>La forma más rápida: haz la foto con la cámara normal del móvil y pulsa <b>«Elegir una foto de la galería»</b>.';
+    if (inApp) h += `<br><br>Parece que has abierto el enlace dentro de otra aplicación (lector de QR, WhatsApp…). Ábrelo en <b>${open}</b>: menú ⋮ o ··· › «Abrir en ${open}».`;
+    else if (kind === 'NotAllowedError' || kind === 'SecurityError') h += isIOS
+      ? '<br><br>Para activar la cámara: <ol><li>Toca «aA» junto a la dirección › Ajustes del sitio web › Cámara › Permitir.</li><li>O en Ajustes del iPhone › Safari › Cámara › Preguntar.</li></ol>'
+      : '<br><br>Para activar la cámara: <ol><li>Toca el icono junto a la dirección (candado o ajustes) › Permisos › Cámara › Permitir.</li><li>Si no aparece: Ajustes del móvil › Aplicaciones › Chrome › Permisos › Cámara › Permitir.</li><li>Recarga la página.</li></ol>';
+    else if (kind === 'NotReadableError') h += '<br><br>Otra aplicación está usando la cámara. Ciérrala y vuelve a intentarlo.';
+    $('pHelp').innerHTML = h; $('pHelp').hidden = false;
+  }
+  function closeCam() { if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; $('pCamBox').hidden = true; }
+  $('pCam').onclick = async () => {
+    $('pHelp').hidden = true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !isSecureContext) { help('none'); return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1920 }, height:{ ideal:1080 } }, audio:false });
+      $('pVid').srcObject = stream; $('pPick').hidden = true; $('pCamBox').hidden = false; $('pCamBox').scrollIntoView({ behavior:'smooth', block:'start' });
+    } catch (e) { closeCam(); help(e.name); }
+  };
+  $('pCamX').onclick = () => { closeCam(); $('pPick').hidden = false; };
+  $('pShot').onclick = async () => {
+    const v = $('pVid'); if (!v.videoWidth) return;
+    img = await toJpeg(v); closeCam(); showPrev();
+    try { navigator.vibrate && navigator.vibrate(30); } catch (e) {}
+  };
+  $('pRedo').onclick = () => { img = null; $('pPrev').hidden = true; $('pPrevBtns').hidden = true; $('pPick').hidden = false; $('pCam').click(); };
+  $('pSend').onclick = () => {
+    if (!img) return;
+    if (!mqOn) { alert('Aún no hay conexión. Espera un segundo y vuelve a intentarlo.'); return; }
+    const name = $('pName').value.trim().slice(0, 24); store.set('agente-name', name);
+    cur = Math.random().toString(36).slice(2, 9);
+    pub(BASE + '/in', { t:'photo', uid:UID, id:cur, name, img:img.split(',')[1] });
+    show('pWait'); $('pWaitT').textContent = 'Foto enviada'; $('pWaitS').textContent = 'Esperando turno…'; steps(false);
+    try { navigator.vibrate && navigator.vibrate(40); } catch (e) {}
+  };
+  $('pRetry').onclick = () => { show('pHome'); };
+  const home = () => { img = null; $('pPrev').hidden = true; $('pPrevBtns').hidden = true; $('pPick').hidden = false; $('pHelp').hidden = true; show('pHome'); scrollTo(0, 0); };
+  connect(() => { mq.subscribe(`${BASE}/u/${UID}`); pub(BASE + '/in', { t:'hi', uid:UID }, { qos:0 }); },
+    (t, m) => {
+      if (!m || m.id !== cur) return;
+      if (m.t === 'q') { $('pWaitT').textContent = m.pos > 0 ? `En cola · posición ${m.pos}` : 'Preparando el análisis…'; $('pWaitS').textContent = m.pos > 0 ? 'El agente está atendiendo otras fotos.' : ''; }
+      else if (m.t === 'run') { $('pWaitT').textContent = 'El agente está analizando tu foto'; $('pWaitS').textContent = 'Revisando cada área…'; steps(true); }
+      else if (m.t === 'res') {
+        steps(false); const R = reportHTML(m.r, img, { marks:m.marks !== false, sim:m.sim });
+        $('pRes').innerHTML = (R.photo ? `<div class="card" style="text-align:center">${R.photo}</div>` : '') + `<div class="card">${R.body || R}</div>
+          <button class="bigBtn" id="pAgain" style="margin-top:14px">Analizar otra foto</button>`;
+        $('pAgain').onclick = home; show('pRes'); scrollTo(0, 0);
+        try { navigator.vibrate && navigator.vibrate([90, 60, 90]); } catch (e) {}
+      } else if (m.t === 'err') { steps(false); show('pErr'); $('pErrT').textContent = m.msg || 'No se pudo analizar la foto.'; $('pRetry').hidden = false; }
+    },
+    on => { $('pDot').className = 'dot' + (on ? ' on' : ''); });
+  setInterval(() => pub(BASE + '/in', { t:'hi', uid:UID }, { qos:0 }), 30000);
+  return;
+}
+
+/* =========================================================================
+   PANTALLA DEL PONENTE
+   ========================================================================= */
+const CFG = { key:'', model:'claude-sonnet-5-5', par:4, marks:true, ...store.get('agente-cfg', {}) };
+const saveCfg = () => store.set('agente-cfg', { key:CFG.key, model:CFG.model, par:CFG.par, marks:CFG.marks });
+
+const SYSTEM = `Eres un agente técnico de seguridad industrial que trabaja en España. Analizas UNA fotografía y detectas riesgos visibles en cinco áreas reglamentarias:
+- pci: protección contra incendios (extintores, BIE, detectores, pulsadores, alumbrado y señalización de evacuación, salidas y vías de evacuación, puertas cortafuegos, sectorización, carga de fuego, almacenamiento). Referencias: RIPCI (RD 513/2017) para instalación y mantenimiento de equipos; RSCIEI (RD 164/2025) en establecimientos industriales; CTE DB-SI en el resto de usos; RD 485/1997 para señalización.
+- bt: baja tensión (cuadros abiertos o sin tapas, partes activas accesibles, cables dañados o sin canalizar, empalmes improvisados, regletas encadenadas, ausencia de protecciones, tomas en zonas húmedas, instalaciones en locales con riesgo de incendio o explosión). Referencias: REBT (RD 842/2002) y sus ITC-BT; RD 614/2001 para riesgo eléctrico de los trabajadores.
+- at: alta tensión (centros de transformación, celdas, subestaciones, líneas aéreas o subterráneas, distancias de seguridad, cierres y accesos, señalización de riesgo eléctrico, enclavamientos, equipos de maniobra). Referencias: RD 337/2014 (ITC-RAT) y RD 223/2008 (ITC-LAT); RD 614/2001.
+- gas: combustibles gaseosos (botellas de GLP, depósitos, tuberías, llaves de corte, reguladores, ventilación, salas de calderas, mangueras, fugas). Referencias: RD 919/2006 (reglamento técnico de distribución y utilización de combustibles gaseosos y sus ITC-ICG); RITE (RD 1027/2007) para salas de máquinas; RD 681/2003 para atmósferas explosivas.
+- presion: equipos a presión (calderas, compresores, calderines, botellas de gases comprimidos sin sujeción, válvulas de seguridad, manómetros, placas de características). Referencias: Reglamento de equipos a presión (RD 809/2021) y sus ITC-EP; RD 709/2015.
+- otros: riesgos relevantes que no encajan en las anteriores (orden y limpieza, almacenamiento de productos químicos —RAPQ, RD 656/2017—, lugares de trabajo —RD 486/1997—).
+
+Reglas:
+1. Informa solo de lo que se ve en la foto o se deduce razonablemente de ella. Si no estás seguro, dilo en la evidencia («posible», «parece»). No inventes datos que no se ven (fechas de revisión, potencias, presiones).
+2. La foto la hará un alumno con el móvil a una pantalla o proyector: ignora el marco, los reflejos, el muaré y el texto de la diapositiva que no forme parte de la escena.
+3. Cita la normativa a nivel de reglamento y, si estás seguro, la ITC o el artículo. No inventes números de artículo.
+4. Máximo 8 hallazgos, de mayor a menor gravedad. Gravedad: «muy_grave» si hay peligro inmediato para personas; «grave» si incumple claramente y puede causar un accidente; «leve» si es una deficiencia menor.
+5. Para cada hallazgo da x e y: el centro aproximado del elemento en la foto, como fracción del ancho y del alto (0 a 1, origen arriba a la izquierda).
+6. Incluye en «correctos» lo que esté bien hecho (máximo 4), si hay algo destacable.
+7. Si la foto no muestra un local, instalación o equipo analizable, pon valida=false y explica en el resumen qué se ve.
+8. Escribe en español de España, frases cortas y claras: lo leerá un alumno en el móvil.`;
+
+const TOOL = { name:'informe_riesgos', description:'Devuelve el informe de riesgos de la fotografía.', input_schema:{ type:'object', properties:{
+  valida:{ type:'boolean', description:'false si la imagen no muestra una instalación, equipo o local analizable' },
+  escena:{ type:'string', description:'Qué se ve en la foto, en una frase' },
+  nivel_global:{ type:'string', enum:['sin_riesgos', 'bajo', 'medio', 'alto', 'critico'] },
+  resumen:{ type:'string', description:'Conclusión para el alumno en una o dos frases' },
+  hallazgos:{ type:'array', maxItems:8, items:{ type:'object', properties:{
+    area:{ type:'string', enum:['pci', 'bt', 'at', 'gas', 'presion', 'otros'] },
+    titulo:{ type:'string', description:'Riesgo en pocas palabras' },
+    evidencia:{ type:'string', description:'Qué se ve en la foto que lo indica' },
+    gravedad:{ type:'string', enum:['leve', 'grave', 'muy_grave'] },
+    normativa:{ type:'string', description:'Reglamento y, si procede, ITC o artículo' },
+    accion:{ type:'string', description:'Medida correctora concreta' },
+    x:{ type:'number', description:'Centro aproximado, fracción del ancho (0-1)' },
+    y:{ type:'number', description:'Centro aproximado, fracción del alto (0-1)' } },
+    required:['area', 'titulo', 'evidencia', 'gravedad', 'normativa', 'accion'] } },
+  correctos:{ type:'array', items:{ type:'string' }, maxItems:4 },
+  limitaciones:{ type:'string', description:'Qué no se puede valorar con esta foto' } },
+  required:['valida', 'escena', 'nivel_global', 'resumen', 'hallazgos'] } };
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function explainErr(m) {
+  m = String(m || '');
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'No se pudo conectar con la API de Claude. Revisa la conexión a internet del ordenador, el cortafuegos de la red o alguna extensión del navegador que bloquee anuncios o scripts.';
+  if (/401|invalid x-api-key|authentication/i.test(m)) return 'La clave de la API no es válida. Cópiala de nuevo completa (empieza por sk-ant-) en Ajustes, sin espacios.';
+  if (/credit balance|billing|purchase credits/i.test(m)) return 'La cuenta de la API no tiene saldo. Compra crédito en platform.claude.com › Settings › Billing.';
+  if (/403|permission/i.test(m)) return 'La clave no tiene permiso para usar este modelo o la organización lo tiene limitado.';
+  if (/404|not_found|model/i.test(m)) return 'El modelo indicado no existe o no está disponible para tu cuenta. Prueba con otro nombre de modelo en Ajustes.';
+  if (/429|rate/i.test(m)) return 'Se ha superado el límite de peticiones por minuto de la cuenta. Baja los «Análisis simultáneos» a 2 en Ajustes.';
+  if (/413|too large|image/i.test(m)) return 'La foto es demasiado grande o no es una imagen válida.';
+  if (/529|overloaded|5\d\d/i.test(m)) return 'La API de Claude está saturada en este momento. Pulsa «Reintentar» en unos segundos.';
+  return 'Error inesperado de la API.';
+}
+async function callClaude(b64) {
+  const body = { model:CFG.model, max_tokens:3000, system:SYSTEM, tools:[TOOL], tool_choice:{ type:'tool', name:'informe_riesgos' },
+    messages:[{ role:'user', content:[{ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:b64 } },
+      { type:'text', text:'Analiza esta fotografía y devuelve el informe de riesgos con la herramienta informe_riesgos.' }] }] };
+  for (let a = 0; ; a++) {
+    const r = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{ 'content-type':'application/json', 'x-api-key':CFG.key,
+      'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' }, body:JSON.stringify(body) });
+    if (r.ok) { const j = await r.json(); const t = (j.content || []).find(c => c.type === 'tool_use'); if (!t) throw new Error('La IA no devolvió un informe.'); return t.input; }
+    if ((r.status === 429 || r.status === 529 || r.status >= 500) && a < 3) { await sleep(2500*(a + 1) + Math.random()*1500); continue; }
+    let msg = `Error ${r.status}`; try { const j = await r.json(); msg += ': ' + (j.error && j.error.message || ''); } catch (e) {}
+    throw new Error(msg);
+  }
+}
+/* Modo ensayo: sin clave de API, devuelve un informe de ejemplo para probar el flujo */
+const SIMS = [
+  { valida:true, escena:'Cuarto técnico con cuadro eléctrico, botellas de gas y un extintor.', nivel_global:'alto',
+    resumen:'Hay dos riesgos graves que conviene corregir ya: el cuadro eléctrico abierto y las botellas sin sujeción.',
+    hallazgos:[
+      { area:'bt', titulo:'Cuadro eléctrico abierto', evidencia:'La puerta del cuadro está abierta y parecen accesibles partes activas.', gravedad:'muy_grave', normativa:'REBT (RD 842/2002), ITC-BT-24 · RD 614/2001', accion:'Cerrar el cuadro, reponer tapas y señalizar el riesgo eléctrico.', x:.28, y:.4 },
+      { area:'presion', titulo:'Botellas de gas sin sujeción', evidencia:'Botellas de pie, sin cadena ni soporte.', gravedad:'grave', normativa:'Reglamento de equipos a presión (RD 809/2021)', accion:'Sujetarlas con cadena o abrazadera y proteger las válvulas.', x:.7, y:.6 },
+      { area:'pci', titulo:'Extintor obstaculizado', evidencia:'Hay cajas delante del extintor.', gravedad:'grave', normativa:'RIPCI (RD 513/2017), anexo I', accion:'Dejar el acceso libre y comprobar la señalización.', x:.52, y:.72 },
+      { area:'otros', titulo:'Material acumulado', evidencia:'Cajas y embalajes en el suelo.', gravedad:'leve', normativa:'RD 486/1997, anexo II', accion:'Retirar el material y mantener el orden.', x:.45, y:.85 } ],
+    correctos:['El extintor está señalizado.'], limitaciones:'No se puede comprobar la fecha de las revisiones ni el estado interior del cuadro.' },
+  { valida:true, escena:'Sala de calderas con tuberías de gas y un compresor.', nivel_global:'medio',
+    resumen:'La sala está razonablemente bien; falta ventilación visible y señalizar la llave de corte del gas.',
+    hallazgos:[
+      { area:'gas', titulo:'Llave de corte sin señalizar', evidencia:'No se ve rótulo junto a la llave de la tubería amarilla.', gravedad:'grave', normativa:'RD 919/2006 (ITC-ICG 07)', accion:'Señalizar la llave de corte y verificar su accesibilidad.', x:.35, y:.35 },
+      { area:'gas', titulo:'Ventilación no visible', evidencia:'No se aprecian rejillas de ventilación en la parte visible.', gravedad:'grave', normativa:'RITE (RD 1027/2007) · RD 919/2006', accion:'Comprobar que la sala tiene ventilación inferior y superior.', x:.8, y:.2 },
+      { area:'presion', titulo:'Placa del calderín ilegible', evidencia:'La placa de características parece deteriorada.', gravedad:'leve', normativa:'Reglamento de equipos a presión (RD 809/2021)', accion:'Reponer la placa y comprobar las inspecciones periódicas.', x:.6, y:.55 } ],
+    correctos:['Tuberías identificadas por colores.', 'Extintor de CO₂ junto a la puerta.'], limitaciones:'No se ve toda la sala.' },
+];
+let simI = 0;
+async function analyse(b64) {
+  if (!CFG.key) { await sleep(3500 + Math.random()*3000); return { r:SIMS[simI++ % SIMS.length], sim:true }; }
+  return { r:await callClaude(b64), sim:false };
+}
+
+/* ---------- cola ---------- */
+const JOBS = []; let running = 0, sel = null, follow = true;
+const SEEN = new Map();
+function enqueue(job) {
+  if (JOBS.some(j => j.uid === job.uid && (j.st === 'cola' || j.st === 'run')) && job.uid !== 'local') {
+    pub(`${BASE}/u/${job.uid}`, { t:'err', id:job.id, msg:'Ya tienes una foto en análisis. Espera a que termine.' }); return;
+  }
+  if (JOBS.filter(j => j.st === 'cola').length >= 120) { pub(`${BASE}/u/${job.uid}`, { t:'err', id:job.id, msg:'La cola está llena. Prueba dentro de un momento.' }); return; }
+  Object.assign(job, { st:'cola', t0:Date.now() }); JOBS.push(job); notifyQueue(); pump(); render();
+}
+function notifyQueue() {
+  JOBS.filter(j => j.st === 'cola').forEach((j, i) => { if (j.uid !== 'local' && j.lastPos !== i + 1) { j.lastPos = i + 1; pub(`${BASE}/u/${j.uid}`, { t:'q', id:j.id, pos:i + 1 }, { qos:0 }); } });
+}
+async function pump() {
+  while (running < CFG.par) {
+    const j = JOBS.find(x => x.st === 'cola'); if (!j) break;
+    j.st = 'run'; running++; notifyQueue(); render();
+    if (j.uid !== 'local') pub(`${BASE}/u/${j.uid}`, { t:'run', id:j.id });
+    (async () => {
+      try {
+        const { r, sim } = await analyse(j.b64);
+        Object.assign(j, { st:'ok', r, sim, t1:Date.now() });
+        if (j.uid !== 'local') pub(`${BASE}/u/${j.uid}`, { t:'res', id:j.id, r, sim, marks:CFG.marks });
+        if (follow || !sel) sel = j;
+      } catch (e) {
+        Object.assign(j, { st:'err', msg:e.message, hint:explainErr(e.message) }); if (follow || !sel || sel.st !== 'ok') sel = j;
+        if (j.uid !== 'local') pub(`${BASE}/u/${j.uid}`, { t:'err', id:j.id, msg:'El agente no ha podido analizar la foto. Inténtalo de nuevo.' });
+        console.warn(e);
+      } finally { running--; if (j.st === 'ok') j.b64 = null; featShown = null; render(); pump(); }
+    })();
+  }
+}
+
+/* ---------- pintar ---------- */
+function render() {
+  const ok = JOBS.filter(j => j.st === 'ok');
+  const nF = ok.reduce((s, j) => s + ((j.r && j.r.hallazgos) || []).length, 0);
+  $('kIn').textContent = JOBS.length; $('kQ').textContent = JOBS.filter(j => j.st === 'cola' || j.st === 'run').length;
+  $('kOk').textContent = ok.length; $('kF').textContent = nF;
+  // barras por área
+  const cnt = {}; Object.keys(AREAS).forEach(k => cnt[k] = 0);
+  ok.forEach(j => (j.r.hallazgos || []).forEach(h => cnt[AREAS[h.area] ? h.area : 'otros']++));
+  const mx = Math.max(1, ...Object.values(cnt));
+  $('bars').innerHTML = Object.entries(AREAS).map(([k, A]) => `<div class="br"><span style="color:${A.c}">${A.s}</span><span class="tr"><i style="width:${cnt[k]/mx*100}%;background:${A.c}"></i></span><span>${cnt[k]}</span></div>`).join('');
+  const lc = {}; Object.keys(LEVELS).forEach(k => lc[k] = 0); ok.forEach(j => { if (j.r.valida !== false && lc[j.r.nivel_global] !== undefined) lc[j.r.nivel_global]++; });
+  const tot = Object.values(lc).reduce((a, b) => a + b, 0) || 1;
+  $('lvBar').innerHTML = Object.entries(LEVELS).map(([k, L]) => `<i style="width:${lc[k]/tot*100}%;background:${L.c}" title="${L.n}: ${lc[k]}"></i>`).join('');
+  $('lvLeg').innerHTML = Object.entries(LEVELS).map(([k, L]) => `<span><i style="background:${L.c}"></i>${L.n.replace('Riesgo ', '')} ${lc[k]}</span>`).join('');
+  // lista
+  $('feedN').textContent = JOBS.length ? JOBS.length : '';
+  $('feed').innerHTML = [...JOBS].reverse().map(j => {
+    const who = esc(j.name || 'Anónimo'), hh = new Date(j.t0).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+    let s = '', cs = '';
+    if (j.st === 'cola') s = '<span class="pill">en cola</span>';
+    else if (j.st === 'run') s = '<span class="pill run">analizando</span>';
+    else if (j.st === 'err') s = `<span class="pill" style="background:#5a1f1f">error</span> <span style="color:#ff9a9a">${esc((j.hint || '').split('.')[0])}</span>`;
+    else { const L = LEVELS[j.r.nivel_global] || LEVELS.medio; s = j.r.valida === false ? '<span class="pill">no válida</span>' : `<span class="pill" style="background:${L.c};color:#071018">${L.n.replace('Riesgo ', '')}</span> · ${(j.r.hallazgos || []).length} riesgos`;
+      cs = [...new Set((j.r.hallazgos || []).map(h => h.area))].map(areaChip).join(''); }
+    return `<div class="item${j === sel ? ' sel' : ''}${j.st === 'cola' ? ' q' : ''}" data-id="${j.id}"><img src="${j.img}" alt=""><div><div class="t">${who} <span style="color:var(--dim);font-weight:400">· ${hh}</span></div><div class="s">${s}</div><div class="cs">${cs}</div></div></div>`;
+  }).join('');
+  document.querySelectorAll('#feed .item').forEach(el => el.onclick = () => { const j = JOBS.find(x => x.id === el.dataset.id); if (j && (j.st === 'ok' || j.st === 'err')) { sel = j; follow = false; featShown = null; render(); } });
+  renderFeat();
+}
+let featShown = null;
+function renderFeat() {
+  if (!sel) { $('emptyBox').classList.remove('hidden'); $('feat').classList.add('hidden'); return; }
+  $('emptyBox').classList.add('hidden'); $('feat').classList.remove('hidden');
+  if (featShown === sel) return; featShown = sel;
+  if (sel.st === 'err') {
+    $('feat').innerHTML = `<div class="lcol"><div class="ph"><img src="${sel.img}" alt=""></div></div><div class="rcol"><div class="fhd"><h2>No se pudo analizar</h2><span class="who">${esc(sel.name || 'Anónimo')}</span></div>
+      <p class="sum" style="color:#ffb3b3">${esc(sel.hint)}</p><p class="disc" style="font-family:var(--mono)">Mensaje de la API: ${esc(sel.msg)}</p>
+      ${sel.b64 ? '<button class="btn acc" id="bRetry" style="width:auto">Reintentar este análisis</button>' : ''}</div>`;
+    const b = $('bRetry'); if (b) b.onclick = () => { sel.st = 'cola'; sel.lastPos = 0; sel.t0 = Date.now(); follow = true; notifyQueue(); pump(); render(); };
+    return;
+  }
+  const R = reportHTML(sel.r, sel.img, { marks:CFG.marks, sim:sel.sim, big:true });
+  const who = `${esc(sel.name || 'Anónimo')} · ${new Date(sel.t0).toLocaleTimeString('es-ES')}${sel.t1 ? ` · ${((sel.t1 - sel.t0)/1000).toFixed(0)} s` : ''}`;
+  $('feat').innerHTML = typeof R === 'string'
+    ? `<div class="lcol"><div class="ph"><img src="${sel.img}" alt=""></div></div><div class="rcol"><div class="fhd"><span class="who">${who}</span></div>${R}</div>`
+    : `<div class="lcol">${R.photo}</div><div class="rcol"><div class="fhd"><h2>Informe del agente</h2><span class="who">${who}${follow ? ' · siguiendo el último' : ''}</span></div>${R.body}</div>`;
+}
+
+/* ---------- presencia ---------- */
+function countOn() {
+  const now = Date.now(); for (const [k, t] of SEEN) if (now - t > 75000) SEEN.delete(k);
+  $('kOn').textContent = SEEN.size; $('qrCount').textContent = SEEN.size ? (SEEN.size === 1 ? '1 conectado' : `${SEEN.size} conectados`) : '';
+}
+setInterval(countOn, 5000);
+
+/* ---------- arranque ---------- */
+$('areasBig').innerHTML = areaChipsLong();
+$('salaTxt').textContent = 'Sala ' + SALA; $('qrSala').textContent = SALA;
+const phoneURL = (() => { const u = new URL(location.href); u.search = `?m=1&sala=${SALA}${BROKER !== DEF_BROKER ? '&b=' + encodeURIComponent(BROKER) : ''}`; u.hash = ''; return u.href; })();
+$('qrURLs').textContent = phoneURL.replace(/^https?:\/\//, ''); $('qrURLb').textContent = phoneURL.replace(/^https?:\/\//, '');
+if (window.qrcode) {
+  const q = qrcode(0, 'M'); q.addData(phoneURL); q.make();
+  $('qrSmall').innerHTML = q.createSvgTag({ cellSize:3, margin:1, scalable:true }); $('qrBigSvg').innerHTML = q.createSvgTag({ cellSize:6, margin:1, scalable:true });
+}
+const toggleQR = () => { $('qrBig').hidden = !$('qrBig').hidden; countOn(); };
+$('bQR').onclick = toggleQR; $('qrBig').onclick = toggleQR; $('qrSmallBox').onclick = toggleQR;
+const modeBox = () => { $('modeBox').className = 'mode ' + (CFG.key ? 'real' : 'sim');
+  $('modeBox').innerHTML = CFG.key ? `<b>IA activada</b> · ${esc(CFG.model)} · ${CFG.par} a la vez` : '<b>Modo ensayo</b>: sin clave de API, los móviles reciben un informe de ejemplo marcado como SIMULADO. Pon la clave en Ajustes para el análisis real.'; };
+$('sKey').value = CFG.key; $('sModel').value = CFG.model; $('sPar').value = String(CFG.par); $('sMarks').checked = CFG.marks; $('sSala').value = SALA;
+$('sKey').onchange = e => { CFG.key = e.target.value.trim(); saveCfg(); modeBox(); };
+$('sModel').onchange = e => { CFG.model = e.target.value.trim() || 'claude-sonnet-5-5'; saveCfg(); modeBox(); };
+$('sPar').onchange = e => { CFG.par = +e.target.value; saveCfg(); modeBox(); pump(); };
+$('sMarks').onchange = e => { CFG.marks = e.target.checked; saveCfg(); featShown = null; renderFeat(); };
+$('sSala').onchange = e => { store.set('agente-sala', cleanSala(e.target.value) || newSala()); const u = new URL(location.href); u.searchParams.delete('sala'); location.href = u.href; };
+$('bClear').onclick = () => { if (!confirm('¿Vaciar todas las fotos y resultados del panel?')) return; for (let i = JOBS.length - 1; i >= 0; i--) if (JOBS[i].st !== 'run') JOBS.splice(i, 1); sel = null; featShown = null; follow = true; render(); };
+$('bTest').onclick = async () => {
+  if (!CFG.key) { $('testOut').textContent = 'No hay clave: estás en modo ensayo.'; return; }
+  $('testOut').textContent = 'Probando…';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{ 'content-type':'application/json', 'x-api-key':CFG.key, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+      body:JSON.stringify({ model:CFG.model, max_tokens:10, messages:[{ role:'user', content:'Responde solo: OK' }] }) });
+    if (r.ok) { $('testOut').innerHTML = '<span style="color:var(--ok)">✓ La clave y el modelo funcionan.</span>'; return; }
+    let msg = `Error ${r.status}`; try { const j = await r.json(); msg += ': ' + (j.error && j.error.message || ''); } catch (e) {}
+    $('testOut').innerHTML = `<span style="color:#ff9a9a">${esc(explainErr(msg))}</span><br><span style="font-family:var(--mono)">${esc(msg)}</span>`;
+  } catch (e) { $('testOut').innerHTML = `<span style="color:#ff9a9a">${esc(explainErr(e.message))}</span><br><span style="font-family:var(--mono)">${esc(e.message)}</span>`; }
+};
+$('bLocal').onclick = () => $('fLocal').click();
+$('fLocal').onchange = async () => { const f = $('fLocal').files[0]; $('fLocal').value = ''; if (!f) return; const img = await toJpeg(f); follow = true;
+  enqueue({ uid:'local', id:'l' + Date.now().toString(36), name:'Ponente', img, b64:img.split(',')[1] }); };
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', async e => { e.preventDefault(); const f = [...e.dataTransfer.files].find(x => x.type.startsWith('image/')); if (!f) return; const img = await toJpeg(f); follow = true;
+  enqueue({ uid:'local', id:'l' + Date.now().toString(36), name:'Ponente', img, b64:img.split(',')[1] }); });
+addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, select')) return;
+  const k = e.key.toLowerCase(), ok = JOBS.filter(j => j.st === 'ok');
+  if (k === 'q') toggleQR(); else if (k === 'a') $('fLocal').click();
+  else if (k === ' ') { e.preventDefault(); follow = true; sel = ok[ok.length - 1] || null; render(); }
+  else if ((k === 'arrowleft' || k === 'arrowright') && ok.length) { const i = Math.max(0, ok.indexOf(sel)); sel = ok[Math.min(ok.length - 1, Math.max(0, i + (k === 'arrowright' ? 1 : -1)))]; follow = false; render(); }
+});
+modeBox(); render();
+connect(() => { mq.subscribe(BASE + '/in'); },
+  (t, m) => {
+    if (!m || !m.uid) return; const uid = String(m.uid).slice(0, 40); SEEN.set(uid, Date.now());
+    if (m.t === 'photo' && typeof m.img === 'string' && m.img.length < 1500000) {
+      enqueue({ uid, id:String(m.id || Date.now()).slice(0, 20), name:String(m.name || '').slice(0, 24), img:'data:image/jpeg;base64,' + m.img, b64:m.img });
+    }
+    countOn();
+  },
+  on => { $('salaTxt').textContent = (on ? 'Sala ' : 'Reconectando · ') + SALA; });
+window.agente = { JOBS, CFG, SIMS, get sel() { return sel; } };
+})();
+</script>
+</body>
+</html>
