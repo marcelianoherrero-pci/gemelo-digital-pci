@@ -1,0 +1,2705 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nave logística · gemelo digital</title>
+<style>
+  :root{
+    --bg:#05080d; --panel:rgba(8,14,21,.9); --line:#1a2836; --line2:#24384a;
+    --txt:#d3e4f1; --dim:#6c8296; --acc:#33d6ff; --ok:#3ee08f; --warn:#ffb547;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,monospace;overflow:hidden}
+  #scene{position:fixed;inset:0}
+  #labels{position:fixed;inset:0;pointer-events:none}
+
+  aside{position:fixed;top:16px;left:16px;bottom:16px;width:330px;z-index:5;
+    background:var(--panel);border:1px solid var(--line);border-radius:4px;
+    display:flex;flex-direction:column;backdrop-filter:blur(6px);
+    box-shadow:0 0 0 1px rgba(51,214,255,.04),0 20px 60px rgba(0,0,0,.5)}
+  .hd{padding:16px 18px 14px;border-bottom:1px solid var(--line)}
+  .status{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+  .status .live{color:var(--ok)}
+  .status .live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+    background:var(--ok);margin-right:6px;box-shadow:0 0 8px var(--ok);animation:blink 1.6s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  h1{margin:10px 0 4px;font-size:15px;font-weight:600;letter-spacing:.02em}
+  h1 span{color:var(--acc)}
+  .sub{font-size:11px;color:var(--dim)}
+
+  .sec{padding:12px 18px 6px;font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
+    display:flex;justify-content:space-between}
+  ul{list-style:none;margin:0;padding:0 10px;overflow:auto;flex:1}
+  li{display:grid;grid-template-columns:10px 34px 1fr auto;gap:10px;align-items:center;
+    padding:9px 8px;border:1px solid transparent;border-radius:3px;cursor:pointer;font-size:12px}
+  li:hover,li.on{background:rgba(51,214,255,.06);border-color:var(--line2)}
+  li .chip{width:10px;height:10px;border-radius:2px}
+  li .id{color:var(--dim)}
+  li .nm small{display:block;color:var(--dim);font-size:10px;margin-top:2px}
+  li .ar{text-align:right;font-variant-numeric:tabular-nums}
+  li .ar small{display:block;color:var(--dim);font-size:10px;margin-top:2px}
+
+  .tot{margin:6px 18px 0;padding:12px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .kpi{font-size:10px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+  .kpi b{display:block;font-size:17px;color:var(--txt);letter-spacing:0;margin-top:3px;font-weight:600}
+  .kpi b i{font-style:normal;font-size:11px;color:var(--dim);font-weight:400}
+
+  .ctl{padding:12px 18px 16px;border-top:1px solid var(--line)}
+  .btns{display:flex;gap:6px;margin-bottom:10px}
+  button{flex:1;background:transparent;color:var(--txt);border:1px solid var(--line2);border-radius:3px;
+    font:inherit;font-size:11px;padding:7px 6px;cursor:pointer}
+  button:hover{border-color:var(--acc);color:var(--acc)}
+  button.off{color:var(--dim)}
+  .hint{font-size:10px;color:var(--dim);line-height:1.6}
+
+  .zl{font-size:11px;padding:4px 8px;border:1px solid;border-radius:2px;background:rgba(5,8,13,.75);
+    white-space:nowrap;text-align:center;transition:transform .15s, background .15s}
+  .zl b{display:block;font-size:10px;letter-spacing:.12em;opacity:.8}
+  .zl.on{background:rgba(5,8,13,.95);transform:scale(1.12)}
+  .tag{font-size:10px;color:var(--dim);letter-spacing:.1em;white-space:nowrap}
+  .tag.dock{color:var(--warn)}
+  .tag.n{color:var(--acc);font-size:13px;font-weight:600}
+
+  aside{overflow-y:auto}
+  aside ul{flex:none;overflow:visible}
+  #zones li{padding:7px 8px}
+  .legend li{grid-template-columns:18px 1fr auto;padding:6px 8px}
+  .legend li svg{width:16px;height:16px}
+  .legend li .ct{font-variant-numeric:tabular-nums;color:var(--txt)}
+  .legend li.off{opacity:.35}
+  .legend li.total{cursor:default;border-top:1px solid var(--line);border-radius:0;margin-top:4px;font-weight:600}
+  .legend li.total:hover{background:none;border-color:transparent;border-top-color:var(--line)}
+  .csvrow{padding:6px 18px 4px;display:flex;gap:6px;align-items:center}
+  .csvrow span{font-size:10px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .csvrow button{flex:none;padding:5px 10px}
+  #tip{position:fixed;z-index:10;pointer-events:none;display:none;max-width:300px;
+    background:rgba(5,8,13,.95);border:1px solid var(--line2);border-left:3px solid var(--acc);
+    padding:8px 10px;font-size:11px;line-height:1.5;border-radius:2px}
+  #tip b{font-size:12px}
+  #tip .d{color:var(--dim)}
+  body.drag::after{content:"Suelta el CSV para cargarlo";position:fixed;inset:0;z-index:20;display:grid;place-items:center;
+    background:rgba(5,8,13,.8);border:2px dashed var(--acc);color:var(--acc);font-size:14px}
+
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:12px 14px 0}
+  .k{border:1px solid var(--line2);border-radius:3px;padding:8px 9px;background:rgba(51,214,255,.03)}
+  .k span{display:block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);min-height:22px}
+  .k b{display:block;font-size:22px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+  .k.soon{border-color:rgba(255,181,71,.45)} .k.soon b{color:#ffb547}
+  .k.late{border-color:rgba(255,77,77,.5)}  .k.late b{color:#ff4d4d}
+  .refrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px 0;font-size:10px;color:var(--dim)}
+  .refrow input{display:block;margin-top:3px;background:transparent;border:1px solid var(--line2);border-radius:3px;
+    color:var(--txt);font:inherit;font-size:11px;padding:3px 6px;color-scheme:dark}
+  .seg{display:flex;border:1px solid var(--line2);border-radius:3px;overflow:hidden}
+  .seg button{border:0;border-radius:0;padding:5px 9px;color:var(--dim)}
+  .seg button.on{background:rgba(51,214,255,.12);color:var(--acc)}
+  ul.stleg{padding:8px 14px 2px;display:flex;flex-direction:column;gap:2px}
+  ul.stleg li{display:flex;align-items:center;gap:8px;padding:2px 0;font-size:11px;cursor:default;border:0}
+  ul.stleg li:hover{background:none}
+  ul.stleg li i{width:9px;height:9px;border-radius:50%;flex:none}
+  ul.stleg li b{margin-left:auto;font-weight:500;font-variant-numeric:tabular-nums}
+  #card{margin:10px 14px 0;border:1px solid var(--line2);border-left:3px solid var(--acc);border-radius:3px;
+    padding:10px 12px 12px;background:rgba(51,214,255,.04)}
+  #card[hidden]{display:none}
+  .cardhd{display:flex;justify-content:space-between;align-items:flex-start}
+  .cardhd .cap{display:block;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .cardhd b{font-size:16px}
+  .cardhd button{flex:none;padding:2px 8px}
+  .badge{display:inline-block;margin:6px 0 4px;font-size:10px;border:1px solid;border-radius:2px;padding:2px 7px}
+  #card dl{display:grid;grid-template-columns:86px 1fr;gap:6px 8px;margin:8px 0 10px;font-size:11px}
+  #card dt{color:var(--dim)}
+  #card dd{margin:0}
+  #card dd small{display:block;color:var(--dim);font-size:10px;margin-top:1px}
+  #card .btns{margin:0}
+
+  .simz li{grid-template-columns:10px 26px 1fr auto;padding:5px 8px}
+  .simz li.st-alarma{background:rgba(255,59,59,.1);border-color:rgba(255,59,59,.5)}
+  .simz li.st-averia{background:rgba(255,230,0,.06);border-color:rgba(255,230,0,.35)}
+  .pill{font-size:9.5px;border:1px solid;border-radius:10px;padding:1px 8px;text-transform:uppercase;letter-spacing:.06em}
+  #simGen{font-weight:600;letter-spacing:.1em}
+  .simbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 14px 2px}
+  .simbtns #sReset{grid-column:span 2}
+  button.danger{border-color:rgba(255,59,59,.6);color:#ff6b6b}
+  button.danger:hover{background:rgba(255,59,59,.12);border-color:#ff3b3b;color:#ff9a9a}
+  button.warn{border-color:rgba(255,230,0,.5);color:#ffe600}
+  button.warn:hover{background:rgba(255,230,0,.08);border-color:#ffe600;color:#fff27a}
+  aside ul.log{max-height:170px;overflow-y:auto;margin:0 14px 6px;padding:0;border:1px solid var(--line);border-radius:3px}
+  .log li{display:grid;grid-template-columns:58px 1fr;gap:8px;padding:5px 8px;font-size:10.5px;cursor:default;
+    border:0;border-bottom:1px solid var(--line);border-radius:0;align-items:start}
+  .log li:hover{background:none;border-color:transparent;border-bottom-color:var(--line)}
+  .log time{color:var(--dim);font-variant-numeric:tabular-nums}
+  .log li.alarma span{color:#ff6b6b;font-weight:600}
+  .log li.averia span{color:#ffe600}
+  .log li.rearme span{color:#3ee08f}
+  .log li.info span{color:var(--dim)}
+  .status .live[data-state=alarma]{color:#ff4d4d}
+  .status .live[data-state=alarma]::before{background:#ff4d4d;box-shadow:0 0 8px #ff4d4d;animation-duration:.5s}
+  .status .live[data-state=averia]{color:#ffe600}
+  .status .live[data-state=averia]::before{background:#ffe600;box-shadow:0 0 8px #ffe600}
+  .zl.alarm{color:#ff4d4d!important;border-color:#ff4d4d!important;background:rgba(60,0,0,.9);animation:blink .6s infinite}
+  .faulttag{font-size:10px;font-weight:700;color:#05080d;background:#ffe600;padding:2px 6px;border-radius:2px;letter-spacing:.08em}
+  #alarmBanner{position:fixed;top:26px;left:calc(50% + 180px);transform:translateX(-50%);z-index:30;pointer-events:none}
+  #alarmBanner[hidden]{display:none}
+  .ab-in{pointer-events:auto;background:rgba(40,0,0,.93);border:2px solid #ff3b3b;border-radius:4px;padding:18px 30px;
+    text-align:center;box-shadow:0 0 44px rgba(255,40,40,.65);animation:abp 1s infinite}
+  @keyframes abp{50%{box-shadow:0 0 10px rgba(255,40,40,.3);border-color:#7a1010}}
+  .ab-t{font-size:32px;font-weight:700;color:#ff4d4d;letter-spacing:.08em}
+  .ab-s{font-size:13px;margin:6px 0 14px;color:#ffd0d0}
+  .ab-in button{flex:none;margin:0 4px;padding:6px 14px;border-color:#ff6b6b;color:#ffd0d0}
+  body.alarm::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:4;
+    box-shadow:inset 0 0 160px rgba(255,30,30,.55);animation:vig 1s infinite}
+  @keyframes vig{50%{box-shadow:inset 0 0 60px rgba(255,30,30,.2)}}
+
+  /* --- v6: evacuación --- */
+  #alarmBanner{left:50%}
+  aside.evac{left:auto;right:16px;width:370px;z-index:5}
+  body.evac-off aside.evac{display:none}
+  .evtoggle{position:fixed;top:16px;right:16px;z-index:6;background:var(--panel);border:1px solid var(--line2);padding:8px 12px;flex:none}
+  body:not(.evac-off) .evtoggle{display:none}
+  .status .xbtn{flex:none;padding:0 6px;font-size:11px;border:0;color:var(--dim)}
+  .evf{padding:4px 14px 6px;display:flex;flex-direction:column;gap:8px;font-size:10.5px;color:var(--dim)}
+  .evf label{display:flex;flex-direction:column;gap:3px}
+  .evf select,.evf input[type=number]{background:#0b1118;border:1px solid var(--line2);color:var(--txt);font:inherit;font-size:11px;padding:4px 6px;border-radius:3px;color-scheme:dark;width:100%}
+  .evf label.chk{flex-direction:row;align-items:flex-start;gap:6px;color:var(--txt);line-height:1.4}
+  .evf label.chk input{margin:1px 0 0;accent-color:#33d6ff}
+  .evf.grid2{display:grid;grid-template-columns:1fr 1fr}
+  .evlim{font-size:10.5px;color:var(--txt);line-height:1.55;border-left:2px solid var(--acc);padding-left:8px}
+  .evlim b{color:var(--acc);font-weight:600}
+  table.evt{width:calc(100% - 28px);margin:0 14px;border-collapse:collapse;font-size:10.5px}
+  .evt th{color:var(--dim);font-weight:400;text-align:right;padding:4px 3px;border-bottom:1px solid var(--line);font-size:9.5px}
+  .evt th:first-child,.evt td:first-child{text-align:left}
+  .evt td{padding:5px 3px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+  .evt tbody tr{cursor:pointer}
+  .evt tbody tr:hover td{background:rgba(51,214,255,.06)}
+  .evt tr.bad td{background:rgba(255,59,59,.09)}
+  .evt tr.ex td{opacity:.5}
+  .evt input{width:42px;background:#0b1118;border:1px solid var(--line2);color:var(--txt);font:inherit;font-size:10.5px;padding:2px 4px;border-radius:2px;text-align:right}
+  .evt .chip{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+  table.evt.small{margin-top:8px}
+  table.evt.small tbody tr{cursor:default}
+  .ok{color:#3ee08f} .ko{color:#ff5a5a} .na{color:var(--dim)}
+  .evnote{margin:8px 14px 0;font-size:10px;color:var(--dim);line-height:1.55}
+  .evnote b{color:var(--txt)}
+  aside.evac > .evnote:last-child{margin-bottom:16px}
+  ul.evx li{grid-template-columns:1fr auto;font-size:10.5px;padding:5px 8px;cursor:default}
+  ul.evx label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  ul.evx input{accent-color:#3ee08f}
+  ul.evx li span{color:var(--dim);white-space:nowrap}
+  button.go{border-color:rgba(62,224,143,.6);color:#3ee08f}
+  button.go:hover{background:rgba(62,224,143,.1);border-color:#3ee08f;color:#7dffb0}
+  .simbtns.ev3{grid-template-columns:1.1fr 1.3fr .9fr}
+  .evlive{display:flex;justify-content:space-between;align-items:baseline;padding:10px 14px 6px}
+  .evlive b{font-size:22px;font-variant-numeric:tabular-nums}
+  .evlive span{font-size:11px;color:var(--dim)}
+  #evChart{display:block;width:calc(100% - 28px);margin:0 14px;height:auto;border:1px solid var(--line);border-radius:3px;background:rgba(0,0,0,.25)}
+  .evkpi{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 14px 0}
+  .evkpi div{border:1px solid var(--line2);border-radius:3px;padding:8px}
+  .evkpi span{display:block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .evkpi b{display:block;font-size:22px;margin-top:3px;color:#3ee08f}
+  .evkpi i{font-style:normal;font-size:10px;color:var(--dim)}
+  #evRes > .ko{margin:8px 14px 0;font-size:11px}
+  .evl{font-size:11px;padding:3px 7px;border-radius:2px;background:rgba(5,8,13,.85);border:1px solid;white-space:nowrap}
+  .evl.ok{color:#fff;border-color:#fff} .evl.ko{color:#ff5a5a;border-color:#ff5a5a}
+  .evl b{margin-right:4px} .evl i{font-style:normal;opacity:.7}
+  .evx-tag{font-size:11px;font-weight:700;color:#fff;background:#0b8a3e;padding:2px 7px;border-radius:2px}
+  .evx-tag.off{background:#b3141b}
+  @media (max-width:720px){ aside.evac{left:8px;right:8px;width:auto;top:8px;bottom:auto;max-height:46vh} }
+
+  /* --- v7: en directo, dron, QR, votación --- */
+  #alarmBanner{top:70px}
+  #liveBar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:7;display:flex;gap:6px;align-items:center;
+    background:var(--panel);border:1px solid var(--line2);border-radius:4px;padding:6px 8px;backdrop-filter:blur(6px);font-size:11px;white-space:nowrap}
+  #liveBar button{flex:none;padding:5px 10px}
+  #liveBar button.warn{color:#ffb547;border-color:rgba(255,181,71,.6)}
+  .lvstat{padding:0 6px;color:var(--dim)} .lvstat b{color:var(--txt)}
+  .lvdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#55606b;margin-right:6px;vertical-align:middle}
+  .lvdot.on{background:#3ee08f;box-shadow:0 0 8px #3ee08f;animation:blink 1.6s infinite} .lvdot.err{background:#ff4d4d}
+  #lvPanel{position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:7;width:440px;background:var(--panel);border:1px solid var(--line2);
+    border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:9px;font-size:10.5px;color:var(--dim);backdrop-filter:blur(6px)}
+  #lvPanel[hidden]{display:none}
+  #lvPanel label{display:flex;flex-direction:column;gap:3px}
+  #lvPanel input:not([type=checkbox]){background:#0b1118;border:1px solid var(--line2);color:var(--txt);font:inherit;font-size:11px;padding:5px 7px;border-radius:3px}
+  #lvPanel label.chk{flex-direction:row;gap:7px;align-items:center;color:var(--txt)}
+  #lvPanel .row{display:flex;gap:6px} #lvPanel .row input{flex:1}
+  #lvPanel p{margin:2px 0 0;line-height:1.6} #lvPanel p b{color:var(--acc)}
+  #qr{position:fixed;inset:0;z-index:35;background:rgba(3,6,10,.86);display:grid;place-items:center;cursor:pointer}
+  #qr[hidden]{display:none}
+  .qrcard{background:#fff;color:#05080d;border-radius:10px;padding:26px 30px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .qrt{font-size:30px;font-weight:700;letter-spacing:.02em;margin-bottom:10px}
+  #qrImg svg{width:min(56vh,440px);height:min(56vh,440px);display:block;margin:0 auto}
+  #qrImg .noqr{width:360px;padding:40px 10px;font-size:14px;color:#333}
+  .qrs{font-size:20px;margin-top:8px} #qrUrl{font-size:12px;color:#555;margin-top:6px;word-break:break-all;max-width:460px}
+  #vote{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:31;width:min(560px,60vw);background:rgba(8,14,21,.95);
+    border:1px solid var(--acc);border-radius:6px;padding:14px 16px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+  #vote[hidden]{display:none}
+  .vhd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px} .vhd>b{font-size:20px}
+  .vhd span{color:var(--dim);font-size:12px} .vhd span b{color:var(--acc);font-size:20px}
+  .vb{display:grid;grid-template-columns:150px 1fr 34px;gap:10px;align-items:center;margin:6px 0;font-size:12px}
+  .vb i{display:block;height:16px;border-radius:2px;min-width:2px;transition:width .4s}
+  .vb b{text-align:right;font-variant-numeric:tabular-nums}
+  .vb.win{color:#ff6b6b;font-weight:700} .vb.win i{box-shadow:0 0 12px #ff3b3b}
+  #toasts{position:fixed;right:400px;bottom:20px;z-index:8;display:flex;flex-direction:column;gap:6px;align-items:flex-end;pointer-events:none}
+  .toast{background:rgba(8,14,21,.94);border:1px solid var(--line2);border-left:3px solid var(--acc);padding:8px 12px;font-size:12px;border-radius:3px;transition:opacity .6s,transform .6s}
+  .toast.hot{border-left-color:#ff3b3b;color:#ffd0d0}
+  .toast.out{opacity:0;transform:translateY(8px)}
+  #pip{position:fixed;left:370px;bottom:20px;width:400px;height:250px;z-index:6;border:2px solid #33d6ff;border-radius:4px;pointer-events:none;
+    box-shadow:0 10px 40px rgba(0,0,0,.6);font-size:11px;color:#e6fbff;text-shadow:0 1px 2px #000}
+  #pip[hidden]{display:none}
+  #pip .ph1{position:absolute;top:6px;left:8px;right:8px} #pip .rec{color:#ff4d4d;animation:blink 1s infinite}
+  #pip #pipState{float:right;color:#33d6ff}
+  #pip .ph2{position:absolute;bottom:6px;left:8px;font-variant-numeric:tabular-nums}
+  #pipDet{position:absolute;left:50%;top:50%;width:150px;height:110px;transform:translate(-50%,-40%);border:2px solid #ff3b3b;border-radius:2px}
+  #pipDet[hidden]{display:none}
+  #pipDet span{position:absolute;top:-20px;left:-2px;background:#ff3b3b;color:#fff;padding:1px 6px;font-weight:700;text-shadow:none;white-space:nowrap}
+  #pipDet small{position:absolute;bottom:-18px;left:0;white-space:nowrap;font-size:9.5px;color:#ffd0d0}
+  .ab-s .by{font-size:12px;color:#ffb3b3}
+  body.present aside, body.present .evtoggle{display:none!important}
+  body.present #pip{left:20px} body.present #toasts{right:20px}
+
+  /* --- v8: modo espectador (móvil) --- */
+  #vwTop,#vwBot{display:none}
+  body.viewer aside,body.viewer #liveBar,body.viewer #lvPanel,body.viewer .evtoggle,body.viewer #toasts,body.viewer #tip,body.viewer #vote,body.viewer #qr{display:none!important}
+  body.viewer #vwTop{display:flex;position:fixed;top:0;left:0;right:0;z-index:9;justify-content:space-between;align-items:center;gap:10px;
+    padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:rgba(5,8,13,.88);border-bottom:1px solid var(--line);font-size:12px;backdrop-filter:blur(6px)}
+  body.viewer.embedded #vwTop .b{display:none}
+  #vwTop .b{font-weight:700;font-family:system-ui,sans-serif} #vwTop .b span{color:var(--acc);font-weight:500}
+  #vwTop .s{display:flex;align-items:center;gap:8px;margin-left:auto}
+  #vwTop .s i{width:8px;height:8px;border-radius:50%;background:#55606b} #vwTop .s i.on{background:#3ee08f;box-shadow:0 0 6px #3ee08f}
+  #vwTop .s b.al{color:#ff5a5a;animation:blink .8s infinite} #vwTop .s span{color:var(--dim)}
+  body.viewer #vwBot{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:9;gap:6px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    background:rgba(5,8,13,.88);border-top:1px solid var(--line);backdrop-filter:blur(6px)}
+  #vwBot button{flex:1;padding:10px 4px;font-size:12px;border-radius:8px} #vwBot button:last-child{flex:.5}
+  #vwBot button.on{color:var(--acc);border-color:var(--acc);background:rgba(51,214,255,.08)}
+  body.viewer #alarmBanner{top:46px;left:50%;width:94vw;pointer-events:none}
+  body.viewer .ab-in{padding:10px 12px} body.viewer .ab-t{font-size:19px} body.viewer .ab-s{font-size:11px;margin:4px 0 0}
+  body.viewer .ab-in button{display:none}
+  body.viewer #pip{left:8px;bottom:64px;width:min(46vw,300px);height:min(29vw,190px);font-size:9px}
+  body.viewer #pipDet{width:38%;height:42%} body.viewer #pipDet small{display:none}
+  body.viewer .zl{font-size:9px;padding:2px 5px} body.viewer .zl b{font-size:8px}
+  body.viewer .tag{font-size:8px} body.viewer .evl{font-size:9px}
+  body.viewer #card{position:fixed;left:8px;right:8px;bottom:64px;max-height:56vh;overflow-y:auto;z-index:12;margin:0;background:rgba(8,14,21,.97);
+    box-shadow:0 -10px 40px rgba(0,0,0,.6);font-family:inherit}
+  body.viewer #card dl{grid-template-columns:96px 1fr}
+
+  @media (max-width:720px){
+    #alarmBanner{left:50%;top:12px;width:92vw} .ab-t{font-size:20px}
+    aside{top:auto;left:8px;right:8px;bottom:8px;width:auto;max-height:46vh}
+    .tot,.hint{display:none}
+  }
+
+  /* --- v5: realismo, fotos, tamaño de equipos --- */
+  .range{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--dim);margin-bottom:10px}
+  .range input{flex:1;accent-color:#33d6ff}
+  .range b{color:var(--txt);font-weight:500;min-width:34px;text-align:right}
+  figure.ph{margin:10px 0 0;position:relative}
+  figure.ph img{display:block;width:100%;height:150px;object-fit:cover;border-radius:3px;background:#0b1118;cursor:zoom-in;border:1px solid var(--line2)}
+  figure.ph figcaption{font-size:9.5px;color:var(--dim);margin-top:4px;line-height:1.45}
+  figure.ph a,#lb a{color:var(--acc);text-decoration:none}
+  figure.ph.err img{display:none}
+  figure.ph.err::before{content:"Foto no disponible: requiere conexión a internet";display:grid;place-items:center;height:70px;
+    border:1px dashed var(--line2);border-radius:3px;font-size:10px;color:var(--dim);text-align:center;padding:0 10px}
+  .nophoto{margin-top:10px;font-size:10px;color:var(--dim);border:1px dashed var(--line2);border-radius:3px;padding:8px}
+  details.photos{margin:10px 14px 0;border:1px solid var(--line);border-radius:3px}
+  details.photos summary{cursor:pointer;padding:8px 10px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  details.photos summary:hover{color:var(--acc)}
+  .gal{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 10px 8px}
+  .gal figure.ph{margin:0}
+  .gal figure.ph img{height:84px}
+  .gal figure.ph figcaption{font-size:9px}
+  details.photos p{margin:0;padding:0 10px 10px;font-size:9.5px;color:var(--dim);line-height:1.5}
+  #lb{position:fixed;inset:0;z-index:40;background:rgba(3,6,10,.92);display:grid;place-items:center;cursor:zoom-out;padding:30px}
+  #lb[hidden]{display:none}
+  #lb figure{margin:0;max-width:min(1100px,92vw);text-align:center}
+  #lb img{max-width:100%;max-height:80vh;border-radius:3px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  #lb figcaption{margin-top:10px;font-size:12px;color:var(--txt)}
+  #lb figcaption small{display:block;color:var(--dim);margin-top:3px;font-size:11px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="scene"></div>
+<div id="labels"></div>
+
+<aside>
+  <div class="hd">
+    <div class="status"><span class="live">En línea</span><span id="clock">--:--:--</span></div>
+    <h1>Nave logística <span>·</span> gemelo digital</h1>
+    <div class="sub">Planta 40 × 24 m · origen esquina NO · X→E, Y→S</div>
+  </div>
+  <div class="kpis">
+    <div class="k"><span>Total equipos</span><b id="kTot">—</b></div>
+    <div class="k soon"><span>Revisión ≤ 30 días</span><b id="kSoon">—</b></div>
+    <div class="k late"><span>Vencidos</span><b id="kLate">—</b></div>
+  </div>
+  <div class="refrow">
+    <label>Fecha de referencia <input type="date" id="refDate" value="2026-11-02"></label>
+    <div class="seg" title="Color del indicador de cada equipo"><button data-mode="estado" class="on">Estado</button><button data-mode="tipo">Tipo</button></div>
+  </div>
+  <ul id="stleg" class="stleg"></ul>
+  <section id="card" hidden></section>
+  <div class="sec"><span>Central de incendios · simulación</span><span id="simGen">REPOSO</span></div>
+  <ul id="simZones" class="simz"></ul>
+  <div class="simbtns">
+    <button id="sFire" class="danger">Fuego en almacén</button>
+    <button id="sFault" class="warn">Avería en detector</button>
+    <button id="sReset">Rearmar central</button>
+  </div>
+  <div class="sec"><span>Registro de eventos</span><span id="logCount"></span></div>
+  <ul id="log" class="log"></ul>
+  <div class="sec"><span>Zonas</span><span>Superficie</span></div>
+  <ul id="zones"></ul>
+  <div class="tot">
+    <div class="kpi">Superficie total<b id="tArea">—</b></div>
+    <div class="kpi">Volumen<b id="tVol">—</b></div>
+  </div>
+  <div class="sec"><span>Equipos PCI por tipo</span><span>Uds.</span></div>
+  <ul id="pci" class="legend"></ul>
+  <div class="csvrow"><span id="csvName">Inventario integrado</span><button id="bCsv">Cargar CSV…</button>
+    <input type="file" id="fCsv" accept=".csv,text/csv" hidden></div>
+  <details class="photos" id="gallery">
+    <summary>Fotos de referencia · nave y equipos</summary>
+    <div class="gal" id="galGrid"></div>
+    <p>Fotos reales de instalaciones similares, no de esta nave. Proceden de Wikimedia Commons con licencia libre; cada una indica su autor y licencia. Se cargan desde internet.</p>
+  </details>
+  <div class="ctl">
+    <label class="range">Tamaño de equipos <input type="range" id="eqScale" min="1" max="4" step="0.5" value="2"><b id="eqScaleV">×2</b></label>
+    <div class="btns">
+      <button id="bHome">Vista inicial</button>
+      <button id="bTop">Planta</button>
+      <button id="bWalls">Muros</button>
+    </div>
+    <div class="hint">Arrastrar: girar · Rueda: zoom · Botón derecho: desplazar<br>Clic en un equipo: ficha con foto · Clic en una zona: centrarla<br>Clic en la leyenda para ocultar/mostrar un tipo · Puedes arrastrar otro CSV sobre la ventana<br>«Tamaño de equipos ×1» = tamaño real</div>
+  </div>
+</aside>
+<button id="evToggle" class="evtoggle">Evacuación ▸</button>
+<aside class="evac" id="evac">
+  <div class="hd">
+    <div class="status"><span>Evacuación</span><button id="evClose" class="xbtn" title="Ocultar panel">✕</button></div>
+    <h1>Recorridos <span>·</span> simulación</h1>
+    <div class="sub">RSCIEI (RD 164/2025) · Anexo III, sección 3 · Tabla 2.3.1</div>
+  </div>
+  <div class="sec"><span>Criterio</span></div>
+  <div class="evf">
+    <label>Nivel de riesgo intrínseco del sector<select id="evRisk"><option value="bajo">Bajo</option><option value="medio" selected>Medio</option><option value="alto">Alto</option></select></label>
+    <label>Incremento de recorridos (nota 4)<select id="evInc"><option value="0">Sin incremento</option><option value="25">+25 % · extinción automática o control de humo y calor</option><option value="100">+100 % (máx. 90 m) · planta de salida, ≥ 2 salidas directas, altura ≥ 8 m y extinción automática</option></select></label>
+    <div class="evlim" id="evLim"></div>
+    <label class="chk"><input type="checkbox" id="evMap" checked> Mostrar mapa de distancias (isolíneas cada 5 m) y recorrido crítico de cada zona</label>
+    <label class="chk"><input type="checkbox" id="evZ2"> Z2 solo para personal de mantenimiento: excluida (ap. 3.1.3 c)</label>
+    <label class="chk"><input type="checkbox" id="evDock"> Contar las puertas de muelle como salidas</label>
+  </div>
+  <div class="sec"><span>Recorridos máximos por zona</span><span>m</span></div>
+  <table class="evt" id="evTable"></table>
+  <div class="evnote" id="evOcc"></div>
+  <div class="sec"><span>Salidas al exterior</span><span>Disponible</span></div>
+  <ul id="evExits" class="evx"></ul>
+  <div class="sec"><span>Simulación de evacuación</span></div>
+  <div class="evf grid2">
+    <label>Velocidad media (m/s)<input type="number" id="evV" step="0.05" min="0.3"></label>
+    <label>Detección + alarma (s)<input type="number" id="evTa" step="5" min="0"></label>
+    <label>Reacción mín. (s)<input type="number" id="evRmin" step="5" min="0"></label>
+    <label>Reacción máx. (s)<input type="number" id="evRmax" step="5" min="0"></label>
+    <label>Flujo en puertas (pers/m·s)<input type="number" id="evFs" step="0.1" min="0.1"></label>
+    <label>Reproducción<select id="evSpeed"><option value="1">×1 (tiempo real)</option><option value="5">×5</option><option value="10" selected>×10</option><option value="30">×30</option></select></label>
+  </div>
+  <div class="simbtns ev3"><button id="evRun" class="go">▶ Simular</button><button id="evFast">Resultado inmediato</button><button id="evStop">Detener</button></div>
+  <div class="evlive"><b id="evT">0:00</b><span id="evN">—</span></div>
+  <canvas id="evChart" width="660" height="240"></canvas>
+  <div id="evRes"></div>
+  <div class="evnote">Método: recorridos medidos sobre una retícula de 0,25 m con 16 direcciones (error &lt; 3 %) y 0,20 m de separación a paramentos; estanterías, pilares y grupo de presión como obstáculos; mobiliario no modelado. Origen de evacuación: todo punto ocupable. «Sin alt.»: recorrido hasta el primer punto desde el que las rutas a dos salidas distintas divergen más de 45°. Ocupación P = 1,10 p por zona.<br>Simulación: cada persona sale por la salida más próxima tras detección + alarma + reacción; las puertas admiten flujo específico × (ancho − 0,30 m) y forman colas. Resultado orientativo, no sustituye a un análisis prestacional.</div>
+</aside>
+<div id="liveBar">
+  <span class="lvstat"><i id="lvDot" class="lvdot"></i><span id="lvTxt">Sin conexión</span> · <b id="lvN">0</b> conectados</span>
+  <button id="lvQR" title="Mostrar QR (Q)">QR</button>
+  <button id="lvVote" title="Votar dónde empieza el fuego (V)">Votación</button>
+  <button id="lvDrone" title="Enviar el dron (D)">Dron</button>
+  <button id="lvMute" title="Pausar o reanudar al público (M)">Público: activo</button>
+  <button id="lvCfg" title="Configuración">⚙</button>
+</div>
+<div id="lvPanel" hidden>
+  <label>Broker MQTT (WebSocket seguro)<input id="lvBroker" spellcheck="false"></label>
+  <label>Dirección pública de la página del público<input id="lvUrl" placeholder="https://…/publico.html" spellcheck="false"></label>
+  <label>Sala<span class="row"><input id="lvSala" maxlength="12"><button id="lvNew">Nueva</button></span></label>
+  <label class="chk"><input type="checkbox" id="lvAD"> Enviar el dron automáticamente con cada alarma</label>
+  <label class="chk"><input type="checkbox" id="lvAE"> Iniciar la simulación de evacuación con la alarma</label>
+  <label class="chk"><input type="checkbox" id="lvBE"> Bloquear las salidas de la zona incendiada</label>
+  <label>Duración de la votación (s)<input type="number" id="lvVS" min="5" max="120"></label>
+  <div class="row"><button id="lvConn">Conectar</button><button id="lvSim">Ensayo: público simulado</button></div>
+  <p>Atajos: <b>Q</b> QR · <b>V</b> votación · <b>1–6</b> fuego en Z1–Z6 · <b>D</b> dron · <b>E</b> evacuación · <b>R</b> rearmar · <b>M</b> pausar público · <b>F</b> ocultar paneles</p>
+</div>
+<div id="qr" hidden><div class="qrcard">
+  <div class="qrt">Escanea y participa</div>
+  <div id="qrImg"></div>
+  <div class="qrs">Sala <b id="qrSala"></b> · <b id="qrN">0</b> conectados</div>
+  <div id="qrUrl"></div>
+</div></div>
+<div id="vote" hidden><div class="vhd"><b>¿Dónde empieza el fuego?</b><span><span id="voteN"></span> · <b id="voteT"></b></span></div><div id="voteBars"></div></div>
+<div id="toasts"></div>
+<div id="pip" hidden>
+  <div class="ph1"><span class="rec">● REC</span> DRON-01 · CÁMARA <span id="pipState"></span></div>
+  <div id="pipDet" hidden><span>HUMO / LLAMA <b>0,94</b></span><small>detección por visión (simulada)</small></div>
+  <div class="ph2" id="pipData"></div>
+</div>
+<div id="vwTop"><div class="b">Nave logística <span>· gemelo digital</span></div><div class="s"><i id="vwDot"></i><b id="vwState">Conectando…</b><span id="vwEvac"></span></div></div>
+<div id="vwBot"><button id="vwFollow">🎥 Seguir al ponente</button><button id="vwRoutes">Recorridos</button><button id="vwCam" class="on">Dron</button><button id="vwHome" title="Vista inicial">⟲</button></div>
+<div id="tip"></div>
+<div id="alarmBanner" hidden><div class="ab-in">
+  <div class="ab-t">⚠ ALARMA DE INCENDIO</div>
+  <div class="ab-s" id="abSub"></div>
+  <button id="abZone">Ver zona</button><button id="abHide">Ocultar aviso</button>
+</div></div>
+<div id="lb" hidden><figure><img alt=""><figcaption></figcaption></figure></div>
+<script type="text/plain" id="pci-csv">
+ID;Equipo;Tipo;Características;Zona;Ubicación;X (m);Y (m);Altura de montaje (m);Ud;Norma de producto;Mantenimiento titular (RIPCI);Mantenimiento empresa (RIPCI);Última revisión;Próxima revisión;Estado;Señalizado UNE 23033-1;Observaciones
+EXT-01;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z1 Vestuarios;Muro este, junto a acceso desde Z4;9,6;5,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";12/01/2026;12/01/2027;En servicio;Sí;
+EXT-02;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z2 Sala técnica;Muro este, junto a acceso;9,6;11,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";09/11/2025;09/11/2026;En servicio;Sí;
+EXT-03;Extintor;Extintor portátil CO2 5 kg;Eficacia 89B;Z2 Sala técnica;Junto a cuadros eléctricos;0,4;12,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";21/01/2026;21/01/2027;En servicio;Sí;Riesgo eléctrico
+EXT-04;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z3 Oficinas;Muro norte, pasillo;5,0;14,4;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";30/01/2026;30/01/2027;En servicio;Sí;
+EXT-05;Extintor;Extintor portátil CO2 5 kg;Eficacia 89B;Z3 Oficinas;Muro oeste, zona de rack informático;0,4;20,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";08/02/2026;08/02/2027;En servicio;Sí;Equipos informáticos
+EXT-06;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z4 Producción;Muro oeste, tramo norte;10,4;4,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";17/02/2026;17/02/2027;En servicio;Sí;
+EXT-07;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z4 Producción;Muro oeste, tramo sur;10,4;20,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";18/09/2025;18/09/2026;En servicio;Sí;
+EXT-08;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z4 Producción;Fachada norte, centro;18,0;0,4;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";26/02/2026;26/02/2027;En servicio;Sí;
+EXT-09;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z4 Producción;Fachada sur, centro;18,0;23,6;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";07/03/2026;07/03/2027;En servicio;Sí;
+EXT-10;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z4 Producción;Muro este, tramo norte;25,6;4,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";16/03/2026;16/03/2027;En servicio;Sí;
+EXT-11;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z4 Producción;Muro este, tramo sur;25,6;20,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";25/03/2026;25/03/2027;En servicio;Sí;
+EXT-12;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z5 Almacén;Muro oeste, cabecera pasillo 1;26,4;6,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";03/04/2026;03/04/2027;En servicio;Sí;
+EXT-13;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z5 Almacén;Muro oeste, fondo pasillo 1;26,4;16,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";14/11/2025;14/11/2026;En servicio;Sí;
+EXT-14;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z5 Almacén;Fachada este, tramo norte;39,6;6,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";12/04/2026;12/04/2027;En servicio;Sí;
+EXT-15;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z5 Almacén;Fachada este, tramo sur;39,6;16,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";21/04/2026;21/04/2027;En servicio;Sí;
+EXT-16;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z6 Muelles de carga;Muro oeste;26,4;21,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";30/04/2026;30/04/2027;En servicio;Sí;
+EXT-17;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z6 Muelles de carga;Fachada sur, entre muelles M1 y M2;33,0;23,6;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";21/11/2025;21/11/2026;En servicio;Sí;
+EXT-18;Extintor;Extintor portátil polvo ABC 6 kg;Eficacia 27A-183B-C;Z6 Muelles de carga;Fachada este;39,6;21,0;1,20 (parte superior);1;UNE-EN 3-7 / UNE-EN 3-10;Trimestral (titular);"Anual + retimbrado/prueba de nivel C cada 5 años; vida útil máx. 20 años";09/05/2026;09/05/2027;En servicio;Sí;
+BIE-01;Boca de incendio equipada;BIE 25 mm, manguera semirrígida 20 m;"Alcance 25 m; caudal y presión según cálculo";Z4 Producción;Fachada norte;18,0;0,4;1,50 (parte superior);1;UNE-EN 671-1;Trimestral (titular);Anual + prueba de presión de manguera cada 5 años;25/11/2025;25/11/2026;En servicio;Sí;Cobertura a verificar con el cálculo hidráulico
+BIE-02;Boca de incendio equipada;BIE 25 mm, manguera semirrígida 20 m;"Alcance 25 m; caudal y presión según cálculo";Z4 Producción;Fachada sur;18,0;23,6;1,50 (parte superior);1;UNE-EN 671-1;Trimestral (titular);Anual + prueba de presión de manguera cada 5 años;18/05/2026;18/05/2027;En servicio;Sí;Cobertura a verificar con el cálculo hidráulico
+BIE-03;Boca de incendio equipada;BIE 25 mm, manguera semirrígida 20 m;"Alcance 25 m; caudal y presión según cálculo";Z5 Almacén;Muro oeste, centro;26,4;9,0;1,50 (parte superior);1;UNE-EN 671-1;Trimestral (titular);Anual + prueba de presión de manguera cada 5 años;06/10/2025;06/10/2026;En servicio;Sí;Cobertura a verificar con el cálculo hidráulico
+BIE-04;Boca de incendio equipada;BIE 25 mm, manguera semirrígida 20 m;"Alcance 25 m; caudal y presión según cálculo";Z6 Muelles de carga;Muro oeste;26,4;19,5;1,50 (parte superior);1;UNE-EN 671-1;Trimestral (titular);Anual + prueba de presión de manguera cada 5 años;27/05/2026;27/05/2027;En servicio;Sí;Cobertura a verificar con el cálculo hidráulico
+GPCI-01;Grupo de presión contra incendios;Bomba eléctrica + bomba jockey;Caudal y presión según cálculo;Z2 Sala técnica;Muro sur;5,0;13,5;Suelo;1;UNE 23500;Trimestral y semestral (titular);Anual (empresa mantenedora);05/06/2026;05/06/2027;En servicio;Sí;Abastecimiento (aljibe o red) pendiente de definir
+DET-01;Detector puntual;Óptico de humos analógico;Direccionable;Z1 Vestuarios;Techo, vestuario masculino;5,0;3,0;3,00 (techo);1;UNE-EN 54-7;Trimestral (titular);Anual (empresa mantenedora);14/06/2026;14/06/2027;En servicio;Sí;
+DET-02;Detector puntual;Óptico de humos analógico;Direccionable;Z1 Vestuarios;Techo, vestuario femenino;5,0;7,5;3,00 (techo);1;UNE-EN 54-7;Trimestral (titular);Anual (empresa mantenedora);23/06/2026;23/06/2027;En servicio;Sí;
+DET-03;Detector puntual;Óptico de humos analógico;Direccionable;Z2 Sala técnica;Techo, centro;5,0;12,0;3,00 (techo);1;UNE-EN 54-7;Trimestral (titular);Anual (empresa mantenedora);02/07/2026;02/07/2027;En servicio;Sí;
+DET-04;Detector puntual;Óptico de humos analógico;Direccionable;Z3 Oficinas;Techo, despacho norte;3,0;17,0;3,00 (techo);1;UNE-EN 54-7;Trimestral (titular);Anual (empresa mantenedora);28/11/2025;28/11/2026;En servicio;Sí;
+DET-05;Detector puntual;Óptico de humos analógico;Direccionable;Z3 Oficinas;Techo, sala abierta;7,0;19,5;3,00 (techo);1;UNE-EN 54-7;Trimestral (titular);Anual (empresa mantenedora);11/07/2026;11/07/2027;En servicio;Sí;
+DET-06;Detector puntual;Óptico de humos analógico;Direccionable;Z3 Oficinas;Techo, recepción;3,0;22,0;3,00 (techo);1;UNE-EN 54-7;Trimestral (titular);Anual (empresa mantenedora);20/07/2026;20/07/2027;En servicio;Sí;
+DLH-01;Detector lineal de humos;Haz óptico por reflexión;Ancho de cobertura según fabricante (típ. ≤15 m);Z4 Producción;Emisor fachada norte → reflector fachada sur, eje X 14;14,0;0,4;8,40 (bajo cubierta);1;UNE-EN 54-12;Trimestral (titular);Anual (empresa mantenedora);29/07/2026;29/07/2027;En servicio;Sí;"Coordenadas del emisor; comprobar alineación"
+DLH-02;Detector lineal de humos;Haz óptico por reflexión;Ancho de cobertura según fabricante (típ. ≤15 m);Z4 Producción;Emisor fachada norte → reflector fachada sur, eje X 22;22,0;0,4;8,40 (bajo cubierta);1;UNE-EN 54-12;Trimestral (titular);Anual (empresa mantenedora);30/08/2025;30/08/2026;En servicio;Sí;"Coordenadas del emisor; comprobar alineación"
+DLH-03;Detector lineal de humos;Haz óptico por reflexión;Ancho de cobertura según fabricante (típ. ≤15 m);Z5 Almacén;Emisor fachada norte → reflector muro Z5|Z6, eje X 33;33,0;0,4;8,40 (bajo cubierta);1;UNE-EN 54-12;Trimestral (titular);Anual (empresa mantenedora);07/08/2026;07/08/2027;En servicio;Sí;"Coordenadas del emisor; comprobar alineación"
+DLH-04;Detector lineal de humos;Haz óptico por reflexión;Ancho de cobertura según fabricante (típ. ≤15 m);Z6 Muelles de carga;Emisor muro oeste → reflector fachada este, eje Y 21;26,4;21,0;8,40 (bajo cubierta);1;UNE-EN 54-12;Trimestral (titular);Anual (empresa mantenedora);16/08/2026;16/08/2027;En servicio;Sí;"Coordenadas del emisor; comprobar alineación"
+PUL-01;Pulsador de alarma;Rearmable, direccionable;Con tapa protectora;Z1 Vestuarios;Junto a acceso desde Z4;9,6;4,0;1,20–1,50;1;UNE-EN 54-11;Trimestral (titular);Anual (empresa mantenedora);25/08/2026;25/08/2027;En servicio;Sí;Recorrido máx. hasta pulsador: 25 m
+PUL-02;Pulsador de alarma;Rearmable, direccionable;Con tapa protectora;Z3 Oficinas;Junto a salida a fachada sur;9,0;23,6;1,20–1,50;1;UNE-EN 54-11;Trimestral (titular);Anual (empresa mantenedora);03/09/2026;03/09/2027;En servicio;Sí;Recorrido máx. hasta pulsador: 25 m
+PUL-03;Pulsador de alarma;Rearmable, direccionable;Con tapa protectora;Z4 Producción;Junto a salida fachada norte;12,0;0,4;1,20–1,50;1;UNE-EN 54-11;Trimestral (titular);Anual (empresa mantenedora);12/09/2026;12/09/2027;En servicio;Sí;Recorrido máx. hasta pulsador: 25 m
+PUL-04;Pulsador de alarma;Rearmable, direccionable;Con tapa protectora;Z4 Producción;Junto a salida fachada sur;24,0;23,6;1,20–1,50;1;UNE-EN 54-11;Trimestral (titular);Anual (empresa mantenedora);21/09/2026;21/09/2027;En servicio;Sí;Recorrido máx. hasta pulsador: 25 m
+PUL-05;Pulsador de alarma;Rearmable, direccionable;Con tapa protectora;Z5 Almacén;Junto a salida fachada norte;38,0;0,4;1,20–1,50;1;UNE-EN 54-11;Trimestral (titular);Anual (empresa mantenedora);27/10/2025;27/10/2026;En servicio;Sí;Recorrido máx. hasta pulsador: 25 m
+PUL-06;Pulsador de alarma;Rearmable, direccionable;Con tapa protectora;Z6 Muelles de carga;Junto a muelle M1;28,0;23,6;1,20–1,50;1;UNE-EN 54-11;Trimestral (titular);Anual (empresa mantenedora);30/09/2026;30/09/2027;En servicio;Sí;Recorrido máx. hasta pulsador: 25 m
+SIR-01;Sirena de alarma;Sirena interior;Direccionable, ≥65 dB(A) o 5 dB sobre el ruido ambiente;Z3 Oficinas;Techo, sala abierta;5,0;19,0;2,50;1;UNE-EN 54-3 / UNE-EN 54-23;Trimestral (titular);Anual (empresa mantenedora);09/10/2026;09/10/2027;En servicio;Sí;
+SIR-02;Sirena de alarma;Sirena con flash;Direccionable, ≥65 dB(A) o 5 dB sobre el ruido ambiente;Z4 Producción;Muro oeste, centro;10,4;12,0;2,50;1;UNE-EN 54-3 / UNE-EN 54-23;Trimestral (titular);Anual (empresa mantenedora);18/10/2026;18/10/2027;En servicio;Sí;
+SIR-03;Sirena de alarma;Sirena con flash;Direccionable, ≥65 dB(A) o 5 dB sobre el ruido ambiente;Z5 Almacén;Muro oeste;26,4;4,0;2,50;1;UNE-EN 54-3 / UNE-EN 54-23;Trimestral (titular);Anual (empresa mantenedora);01/12/2025;01/12/2026;En servicio;Sí;
+SIR-04;Sirena de alarma;Sirena con flash;Direccionable, ≥65 dB(A) o 5 dB sobre el ruido ambiente;Z6 Muelles de carga;Muro Z5|Z6;33,0;18,4;2,50;1;UNE-EN 54-3 / UNE-EN 54-23;Trimestral (titular);Anual (empresa mantenedora);27/10/2026;27/10/2027;En servicio;Sí;
+SIR-05;Sirena de alarma;Sirena-flash exterior IP65;Direccionable, ≥65 dB(A) o 5 dB sobre el ruido ambiente;Exterior;Fachada sur, sobre muelles;33,0;24,2;4,80;1;UNE-EN 54-3 / UNE-EN 54-23;Trimestral (titular);Anual (empresa mantenedora);05/11/2026;05/11/2027;En servicio;Sí;
+CDI-01;Central de detección y alarma;Analógica, 2 lazos;Con baterías de respaldo;Z3 Oficinas;Recepción, muro sur;2,0;23,6;1,50;1;UNE-EN 54-2 / UNE-EN 54-4;Trimestral (titular);Anual (empresa mantenedora);14/11/2026;14/11/2027;En servicio;Sí;Lugar vigilado permanentemente
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const VIEWER = new URLSearchParams(location.search).has('ver');
+if (VIEWER) document.body.classList.add('viewer');
+
+/* ---------- Datos ---------- */
+const W = 40, D = 24;
+const ZONES = [
+  { id:'Z1', name:'Vestuarios',       x0:0,  x1:10, y0:0,  y1:10, h:3, color:'#5ab0ff', finish:'tile'     },
+  { id:'Z2', name:'Sala técnica',     x0:0,  x1:10, y0:10, y1:14, h:3, color:'#ffb547', finish:'epoxyTech'},
+  { id:'Z3', name:'Oficinas',         x0:0,  x1:10, y0:14, y1:24, h:3, color:'#5fe0a8', finish:'vinyl'    },
+  { id:'Z4', name:'Producción',       x0:10, x1:26, y0:0,  y1:24, h:9, color:'#b48cff', finish:'epoxy'    },
+  { id:'Z5', name:'Almacén',          x0:26, x1:40, y0:0,  y1:18, h:9, color:'#36d6e7', finish:'concrete' },
+  { id:'Z6', name:'Muelles de carga', x0:26, x1:40, y0:18, y1:24, h:9, color:'#ff6b8a', finish:'concrete' },
+];
+ZONES.forEach(z => { z.area = (z.x1-z.x0)*(z.y1-z.y0); z.vol = z.area*z.h; });
+
+// Plano (x este, y sur, h altura) -> mundo, con la nave centrada en el origen
+const P = (x, y, h = 0) => new THREE.Vector3(x - W/2, h, y - D/2);
+
+/* ---------- Utilidades y texturas procedurales ---------- */
+function rng(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const R = rng(77);
+
+function canvasTex(w, h, draw, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+function speckle(g, w, h, amp, n, size = 2) {
+  for (let i = 0; i < n; i++) {
+    const v = (R() - .5) * amp;
+    g.fillStyle = v > 0 ? `rgba(255,255,255,${v})` : `rgba(0,0,0,${-v})`;
+    g.fillRect(R()*w, R()*h, size*R() + .5, size*R() + .5);
+  }
+}
+function blotches(g, w, h, n, alpha) {
+  for (let i = 0; i < n; i++) {
+    const x = R()*w, y = R()*h, r = 20 + R()*110;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, R() < .5 ? `rgba(0,0,0,${alpha})` : `rgba(255,255,255,${alpha})`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x-r, y-r, 2*r, 2*r);
+  }
+}
+// Cada textura base representa un tamaño real (m) para poder repetirla a escala
+const TEX = {
+  concrete: [6, canvasTex(512,512,(g,w,h)=>{ g.fillStyle='#8e908d'; g.fillRect(0,0,w,h); blotches(g,w,h,45,.07); speckle(g,w,h,.2,16000,1.6);
+    g.strokeStyle='rgba(35,35,35,.6)'; g.lineWidth=2; g.strokeRect(1,1,w-2,h-2); })],
+  epoxy: [6, canvasTex(512,512,(g,w,h)=>{ g.fillStyle='#78857f'; g.fillRect(0,0,w,h); blotches(g,w,h,25,.04); speckle(g,w,h,.06,5000,1.2); })],
+  epoxyTech: [6, canvasTex(512,512,(g,w,h)=>{ g.fillStyle='#737a82'; g.fillRect(0,0,w,h); blotches(g,w,h,20,.04); speckle(g,w,h,.06,5000,1.2); })],
+  tile: [1.2, canvasTex(512,512,(g,w,h)=>{ g.fillStyle='#9fa3a0'; g.fillRect(0,0,w,h); const n=4, s=w/n;
+    for (let i=0;i<n;i++) for (let j=0;j<n;j++) { const v=196+R()*16|0; g.fillStyle=`rgb(${v},${v+2},${v-2})`; g.fillRect(i*s+2,j*s+2,s-4,s-4); }
+    speckle(g,w,h,.05,3000,1); })],
+  vinyl: [2, canvasTex(512,512,(g,w,h)=>{ g.fillStyle='#6b5640'; g.fillRect(0,0,w,h); const rows=8, rh=h/rows;
+    for (let r=0;r<rows;r++){ let x=-R()*w*.5; while (x<w){ const len=w*(.35+R()*.4), t=R();
+      g.fillStyle=`hsl(33,${24+t*10}%,${56+t*10}%)`; g.fillRect(x,r*rh,len-2,rh-2);
+      for (let k=0;k<7;k++){ g.strokeStyle='rgba(90,60,30,.13)'; g.beginPath(); const yy=r*rh+R()*rh; g.moveTo(x,yy); g.lineTo(x+len,yy+(R()-.5)*4); g.stroke(); }
+      x+=len; } } })],
+  asphalt: [8, canvasTex(512,512,(g,w,h)=>{ g.fillStyle='#2d2f32'; g.fillRect(0,0,w,h); blotches(g,w,h,30,.05); speckle(g,w,h,.25,22000,1.5); })],
+  panel: [1, canvasTex(256,256,(g,w,h)=>{ const n=4, s=w/n;
+    for (let i=0;i<n;i++){ const x=i*s, gr=g.createLinearGradient(x,0,x+s,0);
+      gr.addColorStop(0,'#a9afb4'); gr.addColorStop(.1,'#d9dde0'); gr.addColorStop(.2,'#c5cace'); gr.addColorStop(.88,'#c1c6ca'); gr.addColorStop(1,'#a2a8ad');
+      g.fillStyle=gr; g.fillRect(x,0,s,h); }
+    speckle(g,w,h,.04,1500,1); })],
+  plaster: [2, canvasTex(256,256,(g,w,h)=>{ g.fillStyle='#e0ddd6'; g.fillRect(0,0,w,h); speckle(g,w,h,.05,4000,1.2); })],
+  door: [0, canvasTex(256,256,(g,w,h)=>{ g.fillStyle='#d2d6da'; g.fillRect(0,0,w,h); const n=9, s=h/n;
+    for (let i=0;i<n;i++){ g.fillStyle='rgba(0,0,0,.28)'; g.fillRect(0,i*s,w,2); g.fillStyle='rgba(255,255,255,.4)'; g.fillRect(0,i*s+2,w,1);
+      for (let k=1;k<4;k++){ g.fillStyle='rgba(0,0,0,.07)'; g.fillRect(0,i*s+k*s/4,w,1); } }
+    g.fillStyle='rgba(25,35,45,.75)'; for (let k=0;k<4;k++) g.fillRect(w*(.08+k*.23),h*.45,w*.18,h*.06); })],
+  cardboard: [0, canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#b38a58'; g.fillRect(0,0,w,h); speckle(g,w,h,.08,1500,1);
+    g.fillStyle='rgba(225,195,140,.6)'; g.fillRect(w*.44,0,w*.12,h);
+    g.fillStyle='#efede7'; g.fillRect(w*.1,h*.16,w*.24,h*.15); g.fillStyle='#333'; for (let k=0;k<3;k++) g.fillRect(w*.12,h*(.19+k*.035),w*.19,1);
+    g.strokeStyle='rgba(80,55,30,.5)'; g.strokeRect(.5,.5,w-1,h-1); })],
+  wood: [0, canvasTex(128,32,(g,w,h)=>{ g.fillStyle='#a8834f'; g.fillRect(0,0,w,h);
+    for (let k=0;k<40;k++){ g.strokeStyle=`rgba(80,50,20,${.1+R()*.15})`; g.beginPath(); const y=R()*h; g.moveTo(0,y); g.lineTo(w,y+(R()-.5)*3); g.stroke(); }
+    g.fillStyle='rgba(40,25,10,.55)'; [0,.45,.9].forEach(p => g.fillRect(p*w,0,w*.1,h)); })],
+  hatch: [0, canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#e6bf18'; g.fillRect(0,0,w,h); g.fillStyle='#1b1b1b';
+    for (let k=-4;k<8;k++){ const o=k*32; g.beginPath(); g.moveTo(o,0); g.lineTo(o+16,0); g.lineTo(o+16+h,h); g.lineTo(o+h,h); g.fill(); } })],
+  checker: [1, canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#8d949a'; g.fillRect(0,0,w,h);
+    for (let y=0;y<h;y+=16) for (let x=(y/16%2)*8;x<w;x+=16){ g.fillStyle='rgba(255,255,255,.35)'; g.fillRect(x,y,7,2); g.fillStyle='rgba(0,0,0,.35)'; g.fillRect(x,y+2,7,1); } })],
+};
+function tex(name, rx, ry) { const t = TEX[name][1].clone(); t.repeat.set(rx, ry); t.needsUpdate = true; return t; }
+const texFor = (name, wM, hM) => { const s = TEX[name][0]; return tex(name, wM/s, hM/s); };
+
+/* ---------- Escena ---------- */
+const host = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, VIEWER ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+host.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
+labelRenderer.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+scene.background = canvasTex(4, 256, (g,w,h) => { const gr = g.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0,'#5d7590'); gr.addColorStop(.45,'#33465b'); gr.addColorStop(1,'#141a22'); g.fillStyle=gr; g.fillRect(0,0,w,h); });
+scene.fog = new THREE.Fog(0x27313d, 95, 230);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 600);
+const HOME = { pos:new THREE.Vector3(-30, 32, 40), tgt:new THREE.Vector3(2, 1, 0) };
+camera.position.copy(HOME.pos);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(HOME.tgt);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 2;
+controls.maxDistance = 140;
+controls.maxPolarAngle = Math.PI * 0.495;
+
+scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x4a4238, 0.35));
+const sun = new THREE.DirectionalLight(0xfff0dc, 2.4);
+sun.position.set(-28, 46, -18);
+sun.castShadow = true;
+sun.shadow.mapSize.set(VIEWER ? 1536 : 4096, VIEWER ? 1536 : 4096);
+Object.assign(sun.shadow.camera, { left:-38, right:38, top:38, bottom:-38, near:1, far:150 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+scene.add(sun, sun.target);
+
+// Explanada de asfalto y retícula de 1 m (visible fuera de la nave)
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
+  new THREE.MeshStandardMaterial({ map:texFor('asphalt', 400, 400), roughness:.95 }));
+ground.rotation.x = -Math.PI/2; ground.position.y = -0.02; ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(120, 120, 0x8fb3cc, 0x8fb3cc);
+grid.material.transparent = true; grid.material.opacity = 0.07; grid.position.y = -0.01;
+scene.add(grid);
+
+/* ---------- Suelos de zona ---------- */
+const floors = [];
+const FINISH = { tile:{r:.35}, epoxyTech:{r:.3}, vinyl:{r:.55}, epoxy:{r:.28}, concrete:{r:.7} };
+ZONES.forEach(z => {
+  const w = z.x1-z.x0, d = z.y1-z.y0, c = new THREE.Color(z.color);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(w, .15, d),
+    new THREE.MeshStandardMaterial({ map:texFor(z.finish, w, d), roughness:FINISH[z.finish].r, metalness:0 }));
+  slab.position.copy(P((z.x0+z.x1)/2, (z.y0+z.y1)/2, -0.075));
+  slab.receiveShadow = true; scene.add(slab);
+
+  // Capa de color de zona (resaltado, alarma)
+  const mat = new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:0.12, transparent:true, opacity:0.06,
+    roughness:0.9, depthWrite:false });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w-0.1, d-0.1), mat);
+  m.rotation.x = -Math.PI/2;
+  m.position.copy(P((z.x0+z.x1)/2, (z.y0+z.y1)/2, 0.012));
+  m.userData.zone = z;
+  scene.add(m); floors.push(m);
+
+  const pts = [P(z.x0+.08,z.y0+.08,.02),P(z.x1-.08,z.y0+.08,.02),P(z.x1-.08,z.y1-.08,.02),P(z.x0+.08,z.y1-.08,.02)];
+  const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color:c, transparent:true, opacity:0.45 }));
+  scene.add(outline);
+  z.floor = m; z.outline = outline;
+
+  const el = document.createElement('div');
+  el.className = 'zl';
+  el.style.borderColor = z.color; el.style.color = z.color;
+  el.innerHTML = `<b>${z.id}</b>${z.name}`;
+  const lab = new CSS2DObject(el);
+  lab.position.copy(P((z.x0+z.x1)/2, (z.y0+z.y1)/2, z.h + 0.9));
+  scene.add(lab);
+  z.label = el;
+});
+
+// Marcas viales pintadas (ejes alineados)
+const paint = (color) => new THREE.MeshStandardMaterial({ color, roughness:.6, polygonOffset:true, polygonOffsetFactor:-2 });
+const YEL = paint(0xe2bd1c), WHT = paint(0xe9e9e4);
+function stripe(x0, y0, x1, y1, wd, mat, hgt = 0.006) {
+  const horiz = y0 === y1;
+  const g = new THREE.PlaneGeometry(horiz ? Math.abs(x1-x0) : wd, horiz ? wd : Math.abs(y1-y0)).rotateX(-Math.PI/2);
+  const m = new THREE.Mesh(g, mat); m.position.copy(P((x0+x1)/2, (y0+y1)/2, hgt)); m.receiveShadow = true; scene.add(m); return m;
+}
+stripe(10.2, 2.0, 25.8, 2.0, .1, YEL); stripe(10.2, 3.3, 25.8, 3.3, .1, YEL);      // pasillo peatonal Z4
+stripe(10.2, 21.0, 25.8, 21.0, .1, YEL); stripe(10.2, 22.3, 25.8, 22.3, .1, YEL);
+[27.6, 30.4, 32.8, 35.6, 38.0].forEach(x => stripe(x, 1.4, x, 15.4, .08, YEL));      // frentes de estantería Z5
+
+/* ---------- Muros, estructura y puertas ---------- */
+const T = 0.25;
+const wallGroup = new THREE.Group(); scene.add(wallGroup);
+const edgeMat = new THREE.LineBasicMaterial({ color:0x2a3138, transparent:true, opacity:0.45 });
+const fadeList = [];   // muros que se vuelven translúcidos cuando tapan la vista
+const wallMeshes = [];
+const WALL_RECTS = [], COLS = [];
+
+function facadeOf(xa, ya, xb, yb) {
+  if (ya === yb && ya === 0)  return { axis:'z', c:P(0,0).z,  out:-1 };
+  if (ya === yb && ya === 24) return { axis:'z', c:P(0,24).z, out: 1 };
+  if (xa === xb && xa === 0)  return { axis:'x', c:P(0,0).x,  out:-1 };
+  if (xa === xb && xa === 40) return { axis:'x', c:P(40,0).x, out: 1 };
+  return null;
+}
+function wall(xa, ya, xb, yb, h, base = 0) {
+  const horiz = ya === yb;
+  const len = Math.abs(horiz ? xb-xa : yb-ya) + T, hh = h - base;
+  const fac = facadeOf(xa, ya, xb, yb);
+  const low = h <= 3 && !fac;                           // tabiques de oficinas
+  const mat = new THREE.MeshStandardMaterial({
+    map: texFor(low ? 'plaster' : 'panel', len, hh), roughness: low ? .85 : .5, metalness: low ? 0 : .35,
+    transparent:true, opacity:.95, side:THREE.DoubleSide, depthWrite:true });
+  const geo = new THREE.BoxGeometry(horiz ? len : T, hh, horiz ? T : len);
+  { const mx = (xa+xb)/2, my = (ya+yb)/2; WALL_RECTS.push(horiz ? { x0:mx-len/2, x1:mx+len/2, y0:my-T/2, y1:my+T/2, base } : { x0:mx-T/2, x1:mx+T/2, y0:my-len/2, y1:my+len/2, base }); }
+  const m = new THREE.Mesh(geo, mat);
+  m.position.copy(P((xa+xb)/2, (ya+yb)/2, (h+base)/2));
+  m.castShadow = true; m.receiveShadow = true;
+  wallGroup.add(m);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
+  e.position.copy(m.position); wallGroup.add(e);
+  m.userData.fade = { mat, base: fac ? .97 : low ? .94 : .9, ...(fac || {}) };
+  fadeList.push(m.userData.fade); wallMeshes.push(m);
+}
+
+const frameMat = new THREE.MeshStandardMaterial({ color:0x3a4048, metalness:.6, roughness:.5 });
+const DOOR_W = 3.5, DOOR_H = 4.5, DOORS = [30.5, 35.5];
+// Huecos de paso: salidas al exterior (S), puertas interiores (P) y puertas de muelle (M).
+// Ubicadas junto a los pulsadores del inventario («junto a salida…»). Coordenadas de plano.
+const OPENINGS = [
+  { id:'S1', kind:'exit', line:'y', at:0,  c:13.2, w:1.2, h:2.1, zone:'Z4', name:'Fachada norte · producción' },
+  { id:'S2', kind:'exit', line:'y', at:24, c:23.0, w:1.2, h:2.1, zone:'Z4', name:'Fachada sur · producción' },
+  { id:'S3', kind:'exit', line:'y', at:0,  c:37.0, w:1.2, h:2.1, zone:'Z5', name:'Fachada norte · almacén' },
+  { id:'S4', kind:'exit', line:'y', at:24, c:7.6,  w:1.6, h:2.1, zone:'Z3', name:'Entrada principal · oficinas' },
+  { id:'S5', kind:'exit', line:'y', at:24, c:27.2, w:1.0, h:2.1, zone:'Z6', name:'Puerta peatonal · muelles' },
+  { id:'P1', kind:'door', line:'x', at:10, c:7.0,  w:1.0, h:2.1, name:'Vestuarios ↔ producción' },
+  { id:'P2', kind:'door', line:'x', at:10, c:12.6, w:1.0, h:2.1, name:'Sala técnica ↔ producción' },
+  { id:'P3', kind:'door', line:'x', at:10, c:17.0, w:1.0, h:2.1, name:'Oficinas ↔ producción' },
+  { id:'P4', kind:'door', line:'x', at:26, c:17.0, w:1.2, h:2.1, name:'Producción ↔ almacén' },
+  { id:'P5', kind:'door', line:'y', at:18, c:29.5, w:3.0, h:4.0, name:'Almacén ↔ muelles (paso de carretillas)' },
+  ...DOORS.map((c, i) => ({ id:'M'+(i+1), kind:'dock', line:'y', at:24, c, w:DOOR_W, h:DOOR_H, zone:'Z6', name:`Puerta de muelle M${i+1}` })),
+];
+[
+  [0,0,10,0,3], [10,0,40,0,9], [0,0,0,24,3], [40,0,40,24,9],
+  [0,24,10,24,3], [10,24,40,24,9],
+  [0,10,10,10,3], [0,14,10,14,3], [10,0,10,24,9], [26,0,26,24,9], [26,18,40,18,9],
+].forEach(([xa, ya, xb, yb, h]) => {
+  const horiz = ya === yb, at = horiz ? ya : xa;
+  const a0 = horiz ? Math.min(xa, xb) : Math.min(ya, yb), a1 = horiz ? Math.max(xa, xb) : Math.max(ya, yb);
+  const ops = OPENINGS.filter(o => o.line === (horiz ? 'y' : 'x') && o.at === at && o.c > a0 && o.c < a1).sort((p, q) => p.c - q.c);
+  const piece = (s, e, top, base = 0) => { if (e - s < .02) return; horiz ? wall(s, at, e, at, top, base) : wall(at, s, at, e, top, base); };
+  let cur = a0;
+  ops.forEach(o => {
+    piece(cur, o.c - o.w/2 - T/2, h);                       // el muro se prolonga T/2: el hueco queda exacto
+    if (o.h < h) piece(o.c - o.w/2 + T/2, o.c + o.w/2 - T/2, h, o.h);
+    cur = o.c + o.w/2 + T/2;
+  });
+  piece(cur, a1, h);
+});
+
+// Marcos, hojas y señales de salida (UNE 23034) en puertas peatonales
+const exitSignMat = (() => {
+  const t = canvasTex(256, 96, (g, w, h) => {
+    g.fillStyle = '#0b8a3e'; g.fillRect(0,0,w,h); g.strokeStyle = '#fff'; g.lineWidth = 4; g.strokeRect(4,4,w-8,h-8);
+    g.fillStyle = '#fff'; g.strokeStyle = '#fff';
+    g.strokeRect(20,18,34,60); g.beginPath(); g.arc(78,26,7,0,Math.PI*2); g.fill();                 // puerta + cabeza
+    g.lineWidth = 7; g.lineCap = 'round'; g.beginPath(); g.moveTo(76,36); g.lineTo(70,56); g.lineTo(84,74);
+    g.moveTo(70,56); g.lineTo(58,72); g.moveTo(74,42); g.lineTo(88,50); g.moveTo(74,42); g.lineTo(62,46); g.stroke();
+    g.font = 'bold 34px sans-serif'; g.textBaseline = 'middle'; g.fillText('SALIDA', 104, 50);
+  });
+  return new THREE.MeshStandardMaterial({ map:t, emissive:0xffffff, emissiveMap:t, emissiveIntensity:.55, roughness:.5 });
+})();
+const leafMat = new THREE.MeshStandardMaterial({ color:0x9aa4ad, metalness:.5, roughness:.45 });
+OPENINGS.filter(o => o.kind !== 'dock').forEach(o => {
+  const horiz = o.line === 'y';
+  const at = (along, across, hh) => horiz ? P(along, o.at + across, hh) : P(o.at + across, along, hh);
+  const box = (w, hgt, d, pos) => { const m = new THREE.Mesh(new THREE.BoxGeometry(horiz ? w : d, hgt, horiz ? d : w), frameMat); m.position.copy(pos); m.castShadow = true; wallGroup.add(m); };
+  [-1, 1].forEach(s => box(.06, o.h, T + .04, at(o.c + s*(o.w/2 + .03), 0, o.h/2)));
+  box(o.w + .12, .06, T + .04, at(o.c, 0, o.h + .03));
+  if (o.kind === 'exit') {
+    const out = o.at === 0 ? -1 : 1;                         // sentido hacia el exterior
+    const leaves = o.w > 1.3 ? 2 : 1, lw = o.w / leaves;
+    for (let k = 0; k < leaves; k++) {                       // hojas abiertas hacia fuera
+      const hinge = o.c - o.w/2 + k*o.w, sgn = k === 0 ? 1 : -1;
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(lw, o.h - .02, .045), leafMat);
+      leaf.position.set(sgn*lw/2, 0, 0);
+      const pivot = new THREE.Group(); pivot.add(leaf); pivot.position.copy(P(hinge, o.at + out*.15, (o.h - .02)/2));
+      pivot.rotation.y = sgn * out * -1.45; leaf.castShadow = true; wallGroup.add(pivot);
+    }
+    [-1, 1].forEach(side => {                                 // señal a ambas caras
+      const sgn = new THREE.Mesh(new THREE.PlaneGeometry(.6, .225), exitSignMat);
+      sgn.position.copy(at(o.c, side*(T/2 + .015), o.h + .3));
+      sgn.rotation.y = horiz ? (side > 0 ? 0 : Math.PI) : (side > 0 ? Math.PI/2 : -Math.PI/2);
+      wallGroup.add(sgn);
+    });
+  }
+});
+
+// Pilares metálicos HEB 300 junto a las fachadas de 9 m
+const heb = new THREE.Shape();
+(() => { const b=.3, h=.3, tf=.019, tw=.011;
+  heb.moveTo(-b/2,-h/2); heb.lineTo(b/2,-h/2); heb.lineTo(b/2,-h/2+tf); heb.lineTo(tw/2,-h/2+tf); heb.lineTo(tw/2,h/2-tf);
+  heb.lineTo(b/2,h/2-tf); heb.lineTo(b/2,h/2); heb.lineTo(-b/2,h/2); heb.lineTo(-b/2,h/2-tf); heb.lineTo(-tw/2,h/2-tf);
+  heb.lineTo(-tw/2,-h/2+tf); heb.lineTo(-b/2,-h/2+tf); heb.closePath(); })();
+const hebGeo = new THREE.ExtrudeGeometry(heb, { depth:9.2, bevelEnabled:false }).rotateX(-Math.PI/2);
+const steelMat = new THREE.MeshStandardMaterial({ color:0x55606b, metalness:.75, roughness:.4 });
+function column(x, y, rot = 0) {
+  COLS.push({ x, y });
+  const m = new THREE.Mesh(hebGeo, steelMat); m.position.copy(P(x, y, 0)); m.rotation.y = rot;
+  m.castShadow = true; m.receiveShadow = true; wallGroup.add(m);
+}
+[10.3, 15.6, 20.8, 25.7, 30.9, 36, 39.7].forEach(x => { column(x, .3); column(x, 23.7); });
+[6, 12, 18].forEach(y => column(39.7, y, Math.PI/2));
+// Viga de coronación
+const ringMat = new THREE.MeshStandardMaterial({ color:0x4b545e, metalness:.7, roughness:.45 });
+[[10,0,40,0],[10,24,40,24],[40,0,40,24]].forEach(([xa,ya,xb,yb]) => {
+  const horiz = ya === yb, len = Math.abs(horiz ? xb-xa : yb-ya);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(horiz ? len : .3, .4, horiz ? .3 : len), ringMat);
+  b.position.copy(P((xa+xb)/2, ya === 24 ? 23.7 : ya === 0 ? .3 : (ya+yb)/2, 9.0)); if (!horiz) b.position.x = P(39.7,0).x;
+  b.castShadow = true; wallGroup.add(b);
+});
+
+/* Puertas de muelle: seccionales, abrigos, rampas niveladoras y topes */
+const doorMat = new THREE.MeshStandardMaterial({ map:tex('door',1,1), metalness:.35, roughness:.45, transparent:true, opacity:.97 });
+fadeList.push({ mat:doorMat, base:.97, axis:'z', c:P(0,24).z, out:1 });
+const dark = new THREE.MeshStandardMaterial({ color:0x1a1c1f, roughness:.9 });
+const levMat = new THREE.MeshStandardMaterial({ map:tex('checker',2,2.5), metalness:.7, roughness:.45 });
+const hatchMat = new THREE.MeshStandardMaterial({ map:tex('hatch',3,1), roughness:.6, polygonOffset:true, polygonOffsetFactor:-2 });
+const add = (geo, mat, pos, shadow = true) => { const m = new THREE.Mesh(geo, mat); m.position.copy(pos); if (shadow) { m.castShadow = true; m.receiveShadow = true; } scene.add(m); return m; };
+DOORS.forEach((cx, i) => {
+  const dr = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W-.06, DOOR_H-.03, .06), doorMat);
+  dr.position.copy(P(cx, 23.95, DOOR_H/2)); dr.castShadow = true; wallGroup.add(dr);
+  // marco
+  [-1,1].forEach(s => add(new THREE.BoxGeometry(.12, DOOR_H, .3), frameMat, P(cx + s*(DOOR_W/2+.06), 24, DOOR_H/2)));
+  // abrigo de muelle (exterior)
+  [-1,1].forEach(s => add(new THREE.BoxGeometry(.35, 3.3, .8), dark, P(cx + s*(DOOR_W/2-.05), 24.55, 2.65)));
+  add(new THREE.BoxGeometry(DOOR_W+.3, .6, .8), dark, P(cx, 24.55, 4.35));
+  // topes de goma
+  [-1,1].forEach(s => add(new THREE.BoxGeometry(.25, .5, .2), dark, P(cx + s*(DOOR_W/2-.45), 24.25, 1.1)));
+  // rampa niveladora interior + zona de seguridad pintada
+  add(new THREE.BoxGeometry(2.2, .04, 2.4), levMat, P(cx, 22.75, .02));
+  const h = stripe(cx-1.75, 21.0, cx+1.75, 21.0, .5, hatchMat, .007); h.position.z = P(0, 21.2).z;
+  // marcas de plaza de camión (exterior)
+  stripe(cx-1.8, 24.4, cx-1.8, 37, .12, WHT); stripe(cx+1.8, 24.4, cx+1.8, 37, .12, WHT);
+  const t = document.createElement('div');
+  t.className = 'tag dock'; t.textContent = `M${i+1} · ${DOOR_W}×${DOOR_H} m`;
+  const o = new CSS2DObject(t); o.position.copy(P(cx, 25.6, 0.2)); scene.add(o);
+});
+
+// Semirremolque atracado en M1
+(() => {
+  const g = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color:0xe6e9ec, metalness:.3, roughness:.45 });
+  const cab = new THREE.MeshStandardMaterial({ color:0x8e1b1f, metalness:.5, roughness:.35 });
+  const tyre = new THREE.MeshStandardMaterial({ color:0x111111, roughness:.85 });
+  const glassC = new THREE.MeshStandardMaterial({ color:0x1d2a36, metalness:.6, roughness:.1 });
+  const box = (w,h,d,mat,x,y,z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); m.position.set(x,y,z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  box(2.5, 2.7, 13.6, white, 0, 1.2+1.35, 6.8);                // caja
+  box(2.3, .25, 13.0, dark, 0, 1.05, 6.8);                      // chasis
+  const wheel = new THREE.CylinderGeometry(.5, .5, .32, 24).rotateZ(Math.PI/2);
+  [10.3, 11.6, 12.9].forEach(z => [-1,1].forEach(s => { const w = new THREE.Mesh(wheel, tyre); w.position.set(s*1.05, .5, z); w.castShadow = true; g.add(w); }));
+  box(2.5, 2.9, 2.3, cab, 0, 1.0+1.45, 15.4);                   // tractora
+  box(2.3, .9, .05, glassC, 0, 3.1, 16.56);
+  box(2.4, .5, 2.0, dark, 0, .75, 15.4);
+  [14.9, 16.0].forEach(z => [-1,1].forEach(s => { const w = new THREE.Mesh(wheel, tyre); w.position.set(s*1.1, .5, z); w.castShadow = true; g.add(w); }));
+  g.position.copy(P(DOORS[0], 24.9, 0));
+  scene.add(g);
+})();
+
+/* ---------- Estanterías del almacén (Z5) ---------- */
+const RACK_LINES = [[26.4,27.5],[30.5,31.6],[31.6,32.7],[35.7,36.8],[36.8,37.9]];
+const BAY = 2.7, BAYS = 5, Y_START = 1.6, RACK_H = 7.5;
+const LEVELS = [0, 1.6, 3.1, 4.6, 6.1];
+const BEAMS  = [1.6, 3.1, 4.6, 6.1, 7.4];
+const rand = rng(1234);
+
+const upGeo = new THREE.BoxGeometry(0.09, RACK_H, 0.09);
+const beamGeo = new THREE.BoxGeometry(0.06, 0.12, BAY);
+const nUp = RACK_LINES.length * (BAYS+1) * 2;
+const nBeam = RACK_LINES.length * BAYS * BEAMS.length * 2;
+const nPal = RACK_LINES.length * BAYS * LEVELS.length * 3;
+const ups = new THREE.InstancedMesh(upGeo, new THREE.MeshStandardMaterial({ color:0x1f5ea8, metalness:.55, roughness:.4 }), nUp);
+const beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshStandardMaterial({ color:0xf07a1a, metalness:.45, roughness:.4 }), nBeam);
+const palBase = new THREE.InstancedMesh(new THREE.BoxGeometry(1, .144, .8), new THREE.MeshStandardMaterial({ map:tex('wood',1,1), roughness:.85 }), nPal);
+const palLoad = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ map:tex('cardboard',1,1), roughness:.8 }), nPal);
+
+const dm = new THREE.Object3D(); const col = new THREE.Color();
+let iu = 0, ib = 0, ip = 0;
+RACK_LINES.forEach(([x0, x1]) => {
+  const xa = x0 + 0.05, xb = x1 - 0.05;
+  for (let b = 0; b <= BAYS; b++) {
+    const y = Y_START + b*BAY;
+    [xa, xb].forEach(x => { dm.position.copy(P(x, y, RACK_H/2)); dm.scale.set(1,1,1); dm.updateMatrix(); ups.setMatrixAt(iu++, dm.matrix); });
+  }
+  for (let b = 0; b < BAYS; b++) {
+    const yc = Y_START + b*BAY + BAY/2;
+    BEAMS.forEach(h => [xa, xb].forEach(x => {
+      dm.position.copy(P(x, yc, h)); dm.scale.set(1,1,1); dm.updateMatrix(); beams.setMatrixAt(ib++, dm.matrix);
+    }));
+    LEVELS.forEach(lv => {
+      for (let k = 0; k < 3; k++) {
+        if (rand() < 0.22) continue;
+        const hh = 0.8 + rand()*0.5;
+        const yk = Y_START + b*BAY + 0.15 + 0.4 + k*0.85;
+        const base = lv === 0 ? 0 : lv + 0.06;
+        dm.position.copy(P((x0+x1)/2, yk, base + .072)); dm.scale.set(1, 1, .97); dm.updateMatrix(); palBase.setMatrixAt(ip, dm.matrix);
+        dm.position.copy(P((x0+x1)/2, yk, base + .144 + hh/2)); dm.scale.set(.98, hh, .76); dm.updateMatrix(); palLoad.setMatrixAt(ip, dm.matrix);
+        col.setHSL(0.08 + rand()*0.03, 0.15 + rand()*0.25, 0.75 + rand()*0.2);
+        palLoad.setColorAt(ip++, col);
+      }
+    });
+  }
+});
+palBase.count = palLoad.count = ip;
+[ups, beams, palBase, palLoad].forEach(m => { m.instanceMatrix.needsUpdate = true; m.castShadow = true; m.receiveShadow = true; scene.add(m); });
+if (palLoad.instanceColor) palLoad.instanceColor.needsUpdate = true;
+
+/* ---------- Referencias: norte, origen, cotas ---------- */
+function tag(text, pos, cls = 'tag') {
+  const el = document.createElement('div'); el.className = cls; el.textContent = text;
+  const o = new CSS2DObject(el); o.position.copy(pos); scene.add(o);
+}
+tag('▲ N', P(20, -5, 0), 'tag n');
+tag('0,0', P(-0.9, -0.9, 0));
+tag('40 m', P(20, -2, 0));
+tag('24 m', P(-2.2, 12, 0));
+tag('X →', P(42.5, -0.8, 0));
+tag('Y ↓', P(-0.8, 26, 0));
+scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
+  P(0,-1,0.02), P(40,-1,0.02), P(-1,0,0.02), P(-1,24,0.02), P(20,-3.2,0.02), P(20,-4.4,0.02)
+]), new THREE.LineBasicMaterial({ color:0x7fa6c2, transparent:true, opacity:.6 })));
+
+/* ---------- Equipos PCI: tipos, estados y lectura del CSV ---------- */
+const TYPES = {
+  'Extintor':                          { label:'Extintor',             color:'#ff3b30', shape:'cyl'   },
+  'Boca de incendio equipada':         { label:'BIE',                  color:'#ff9f1a', shape:'torus' },
+  'Grupo de presión contra incendios': { label:'Grupo de presión',     color:'#4d8dff', shape:'box'   },
+  'Detector puntual':                  { label:'Detector puntual',     color:'#ffe14d', shape:'cone'  },
+  'Detector lineal de humos':          { label:'Detector lineal',      color:'#c86bff', shape:'oct'   },
+  'Pulsador de alarma':                { label:'Pulsador',             color:'#ff5ea8', shape:'cube'  },
+  'Sirena de alarma':                  { label:'Sirena',               color:'#3ee0c9', shape:'ico'   },
+  'Central de detección y alarma':     { label:'Central de detección', color:'#7cff6b', shape:'panel' },
+};
+const SPARE = ['#e0e6ee','#9ad0ff','#ffd0a0','#b0ffb8'];
+const ICON = {
+  cyl:'<rect x="5" y="1" width="6" height="14" rx="2"/>',
+  torus:'<circle cx="8" cy="8" r="5" fill="none" stroke-width="3"/>',
+  box:'<rect x="1" y="4" width="14" height="9"/>',
+  cone:'<path d="M1 3h14L8 14z"/>',
+  oct:'<path d="M8 1l7 7-7 7-7-7z"/>',
+  cube:'<rect x="3" y="3" width="10" height="10"/>',
+  ico:'<path d="M8 1l6 3.5v7L8 15l-6-3.5v-7z"/>',
+  panel:'<rect x="1" y="3" width="14" height="10"/><rect x="3" y="5" width="6" height="2" fill="#05080d"/>',
+  sphere:'<circle cx="8" cy="8" r="6"/>',
+};
+const RECEPTOR_FALLBACK = { 'DLH-01':[14,23.6], 'DLH-02':[22,23.6], 'DLH-03':[33,17.6], 'DLH-04':[39.6,21] };
+
+const STATUS = {
+  ok:   { label:'En plazo (> 30 días)',   short:'En plazo',  color:'#3ee08f' },
+  soon: { label:'Revisión en ≤ 30 días',  short:'Próxima',   color:'#ffb547' },
+  late: { label:'Revisión vencida',       short:'Vencido',   color:'#ff4d4d' },
+  nd:   { label:'Sin fecha de revisión',  short:'Sin fecha', color:'#7a8a99' },
+};
+const DAY = 864e5;
+let REF = new Date(2026, 10, 2);           // 2 de noviembre de 2026
+let colorMode = 'estado';
+
+function parseCSV(text) {
+  text = text.replace(/^﻿/, '').trim();
+  const first = text.split(/\r?\n/)[0];
+  const sep = (first.match(/;/g)||[]).length >= (first.match(/,/g)||[]).length ? ';' : ',';
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === sep) { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i+1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  row.push(f); rows.push(row);
+  const head = rows.shift().map(h => h.trim());
+  return rows.filter(r => r.some(v => v.trim()))
+             .map(r => Object.fromEntries(head.map((h,i) => [h, (r[i] ?? '').trim()])));
+}
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+function pick(rec, ...res) {
+  for (const k of Object.keys(rec)) { const n = norm(k); if (res.some(r => r.test(n))) return rec[k]; }
+  return '';
+}
+function num(v) {
+  if (!v) return NaN;
+  if (/suelo/i.test(v)) return 0;
+  const m = String(v).match(/-?\d+(?:[.,]\d+)?/);
+  return m ? parseFloat(m[0].replace(',', '.')) : NaN;
+}
+function parseDate(v) {
+  if (!v) return null;
+  let m = v.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+  if (m) return new Date(+m[3], m[2]-1, +m[1]);
+  m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], m[2]-1, +m[3]);
+  return null;
+}
+const addMonths = (d, n) => { const r = new Date(d); r.setMonth(r.getMonth() + n); return r; };
+function periodMonths(t) {
+  const n = norm(t || ''); let best = null;
+  [['mensual',1],['trimestral',3],['semestral',6],['anual',12]].forEach(([w, mo]) => {
+    const i = n.indexOf(w); if (i >= 0 && (!best || i < best[0])) best = [i, mo];
+  });
+  return best ? best[1] : null;
+}
+const fmtD = d => d ? d.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
+const daysTo = d => Math.round((d - REF) / DAY);
+function statusOf(u) {
+  if (!u.next) return 'nd';
+  const d = daysTo(u.next);
+  return d < 0 ? 'late' : d <= 30 ? 'soon' : 'ok';
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+/* ---------- Fotos reales (Wikimedia Commons, licencias libres) ---------- */
+const imgURL  = (f, w) => `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(f)}?width=${w}`;
+const pageURL = f => `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(f.replace(/ /g, '_'))}`;
+const PHOTOS = {
+  det:   { file:'Brandmelder bma.jpg', title:'Detector automático de incendios en techo', author:'Magnus Mertens', lic:'CC BY-SA 2.0 DE' },
+  bie:   { file:'Kos Airport-fire hose cabinet-01ASD.jpg', title:'Armario de manguera contra incendios (tipo BIE)', author:'Asurnipal', lic:'CC BY-SA 4.0' },
+  bie2:  { file:'FireHose2.JPG', title:'Devanadera de manguera y extintor', author:'Raysonho @ Open Grid Scheduler / Grid Engine', lic:'CC0 1.0' },
+  nave:  { file:'Modern warehouse with pallet rack storage system.jpg', title:'Nave de almacenaje con estanterías de paletización', author:'Axisadman', lic:'CC BY-SA 3.0' },
+  nave2: { file:'Pallet racks.jpg', title:'Estanterías de paletización de gran altura', author:'Jandrinov', lic:'Dominio público' },
+};
+const TYPE_PHOTOS = { 'Detector puntual':['det'], 'Boca de incendio equipada':['bie','bie2'] };
+const photoFig = k => { const p = PHOTOS[k]; return `<figure class="ph" data-k="${k}">
+  <img src="${imgURL(p.file, 640)}" alt="${esc(p.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('err')">
+  <figcaption>${esc(p.title)}<br>Foto: ${esc(p.author)} · <a href="${pageURL(p.file)}" target="_blank" rel="noopener">${esc(p.lic)} · Wikimedia Commons</a></figcaption></figure>`; };
+
+/* ---------- Modelos 3D realistas (dimensiones reales en metros, frente hacia +Z) ---------- */
+const MAT = {
+  red:    new THREE.MeshStandardMaterial({ color:0xc4161c, roughness:.32, metalness:.25 }),
+  black:  new THREE.MeshStandardMaterial({ color:0x161616, roughness:.55, metalness:.1 }),
+  white:  new THREE.MeshStandardMaterial({ color:0xf3f3ef, roughness:.4 }),
+  light:  new THREE.MeshStandardMaterial({ color:0xdde1e4, roughness:.45, metalness:.1 }),
+  steel:  new THREE.MeshStandardMaterial({ color:0x8c959d, roughness:.4, metalness:.8 }),
+  chrome: new THREE.MeshStandardMaterial({ color:0xd5d9dd, roughness:.18, metalness:1 }),
+  motor:  new THREE.MeshStandardMaterial({ color:0x34475a, roughness:.45, metalness:.5 }),
+  glass:  new THREE.MeshStandardMaterial({ color:0xd8ecff, roughness:.05, metalness:.1, transparent:true, opacity:.22, depthWrite:false }),
+  lens:   new THREE.MeshStandardMaterial({ color:0x0b0f14, roughness:.08, metalness:.6 }),
+};
+const SH = {}; const shared = (k, f) => SH[k] ??= f();
+const ledMat = (c, i = .5) => { const m = new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:i, roughness:.3 });
+  m.userData.base = { c:new THREE.Color(c), i }; return m; };
+const mesh = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); return m; };
+const cylX = (r, l, s = 24) => new THREE.CylinderGeometry(r, r, l, s).rotateZ(Math.PI/2);
+const cylZ = (r, l, s = 24) => new THREE.CylinderGeometry(r, r, l, s).rotateX(Math.PI/2);
+function finish(core, leds = []) {
+  const b = new THREE.Box3().setFromObject(core);
+  core.position.sub(b.getCenter(new THREE.Vector3()));
+  const s = b.getSize(new THREE.Vector3());
+  const g = new THREE.Group(); g.add(core);
+  return { group:g, dim:{ w:s.x/2, h:s.y/2, d:s.z/2 }, leds };
+}
+function signMat(kind) {
+  return shared('sign_' + kind, () => {
+    const t = canvasTex(128, 128, (g, w, h) => {
+      g.fillStyle = '#d7141a'; g.fillRect(0,0,w,h); g.fillStyle = '#fff'; g.strokeStyle = '#fff';
+      const flame = (x, y, s) => { g.beginPath(); g.moveTo(x, y+14*s); g.quadraticCurveTo(x-11*s, y+2*s, x-2*s, y-12*s);
+        g.quadraticCurveTo(x+2*s, y-2*s, x+5*s, y-6*s); g.quadraticCurveTo(x+12*s, y+6*s, x, y+14*s); g.fill(); };
+      if (kind === 'ext') { g.fillRect(46,44,26,62); g.beginPath(); g.arc(59,44,13,Math.PI,0); g.fill(); g.fillRect(55,24,8,10);
+        g.lineWidth = 4; g.beginPath(); g.moveTo(62,28); g.lineTo(80,26); g.lineTo(86,40); g.stroke(); flame(96,88,1.2); }
+      else if (kind === 'bie') { g.lineWidth = 8; g.beginPath(); g.arc(54,62,26,0,Math.PI*2); g.stroke();
+        g.beginPath(); g.arc(54,62,7,0,Math.PI*2); g.fill(); g.lineWidth = 6; g.beginPath(); g.moveTo(80,62); g.quadraticCurveTo(98,64,96,90); g.stroke();
+        g.fillRect(90,90,12,16); flame(100,30,.9); }
+      else if (kind === 'pul') { g.lineWidth = 5; g.strokeRect(34,30,60,64); g.beginPath(); g.moveTo(46,72); g.lineTo(64,56); g.lineTo(82,72);
+        g.lineTo(82,86); g.lineTo(46,86); g.closePath(); g.stroke(); flame(64,78,.6); }
+      g.lineWidth = 4; g.strokeRect(5,5,w-10,h-10);
+    });
+    return new THREE.MeshStandardMaterial({ map:t, emissive:0xffffff, emissiveMap:t, emissiveIntensity:.22, roughness:.6 });
+  });
+}
+function addSign(r, kind) {
+  const s = new THREE.Mesh(new THREE.PlaneGeometry(.21, .21), signMat(kind));
+  s.position.set(0, r.dim.h + .17, -r.dim.d + .004);
+  r.group.add(s);
+}
+
+const MODELS = {
+  // Extintor de polvo ABC 6 kg con soporte, manómetro y manguera
+  cyl() {
+    const c = new THREE.Group();
+    const bodyMat = shared('extBody', () => new THREE.MeshStandardMaterial({ roughness:.3, metalness:.2,
+      map: canvasTex(256, 128, (g, w, h) => { g.fillStyle='#c4161c'; g.fillRect(0,0,w,h);
+        g.fillStyle='#f4f1e8'; g.fillRect(w*.38,h*.2,w*.24,h*.6); g.fillStyle='#c4161c'; g.fillRect(w*.4,h*.24,w*.2,h*.08);
+        g.fillStyle='#2b2b2b'; for (let k=0;k<7;k++) g.fillRect(w*.4,h*(.37+k*.055),w*.18,2); }) }));
+    const body = mesh(new THREE.CylinderGeometry(.08,.08,.42,32), bodyMat); body.rotation.y = Math.PI; c.add(body);
+    c.add(mesh(new THREE.SphereGeometry(.08,32,14,0,Math.PI*2,0,Math.PI/2), MAT.red, 0,.21,0));
+    c.add(mesh(new THREE.CylinderGeometry(.083,.083,.03,32), MAT.black, 0,-.215,0));
+    c.add(mesh(new THREE.CylinderGeometry(.022,.026,.06,16), MAT.black, 0,.31,0));
+    c.add(mesh(new THREE.BoxGeometry(.06,.045,.05), MAT.chrome, 0,.355,0));
+    const lever = mesh(new THREE.BoxGeometry(.13,.012,.032), MAT.black, .035,.395,0); lever.rotation.z = .14; c.add(lever);
+    c.add(mesh(new THREE.BoxGeometry(.12,.012,.032), MAT.black, .03,.365,0));
+    c.add(mesh(cylZ(.019,.012), MAT.white, 0,.355,.03));
+    c.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(.03,.35,.01), new THREE.Vector3(.09,.3,.05),
+      new THREE.Vector3(.1,.1,.085), new THREE.Vector3(.095,-.1,.075)]), 24, .009, 8), MAT.black));
+    c.add(mesh(new THREE.CylinderGeometry(.013,.016,.06,12), MAT.black, .095,-.13,.075));
+    c.add(mesh(new THREE.BoxGeometry(.1,.07,.02), MAT.black, 0,.12,-.09));
+    const r = finish(c); addSign(r, 'ext'); return r;
+  },
+  // BIE 25 mm: armario metálico rojo con puerta acristalada y devanadera
+  torus() {
+    const c = new THREE.Group(), Wc = .66, Hc = .66, Dc = .2, t = .016;
+    c.add(mesh(new THREE.BoxGeometry(Wc,Hc,t), MAT.red, 0,0,-Dc/2+t/2));
+    [-1,1].forEach(s => c.add(mesh(new THREE.BoxGeometry(t,Hc,Dc), MAT.red, s*(Wc/2-t/2),0,0)));
+    [-1,1].forEach(s => c.add(mesh(new THREE.BoxGeometry(Wc,t,Dc), MAT.red, 0,s*(Hc/2-t/2),0)));
+    const hose = shared('hose', () => new THREE.MeshStandardMaterial({ color:0xa8121a, roughness:.55 }));
+    [.13,.17,.21].forEach(r => c.add(mesh(new THREE.TorusGeometry(r,.025,10,48), hose, 0,0,-.03)));
+    c.add(mesh(cylZ(.07,.12), MAT.chrome, 0,0,-.03)); c.add(mesh(cylZ(.03,.16), MAT.steel, 0,0,-.03));
+    const noz = mesh(new THREE.CylinderGeometry(.018,.024,.14,12), MAT.black, .25,-.2,.03); noz.rotation.z = .4; c.add(noz);
+    c.add(mesh(new THREE.CylinderGeometry(.03,.03,.06,12), MAT.chrome, -.25,.25,-.04));
+    const fz = Dc/2 - .006;
+    c.add(mesh(new THREE.BoxGeometry(Wc,.03,.012), MAT.red, 0, Hc/2-.015, fz));
+    c.add(mesh(new THREE.BoxGeometry(Wc,.03,.012), MAT.red, 0,-Hc/2+.015, fz));
+    c.add(mesh(new THREE.BoxGeometry(.03,Hc,.012), MAT.red, -Wc/2+.015,0, fz));
+    c.add(mesh(new THREE.BoxGeometry(.03,Hc,.012), MAT.red,  Wc/2-.015,0, fz));
+    c.add(mesh(new THREE.PlaneGeometry(Wc-.06, Hc-.06), MAT.glass, 0,0, fz));
+    c.add(mesh(new THREE.BoxGeometry(.02,.08,.02), MAT.black, Wc/2-.05,0, fz+.012));
+    c.add(mesh(new THREE.PlaneGeometry(.2,.05), shared('bieLab', () => new THREE.MeshBasicMaterial({ toneMapped:false,
+      map: canvasTex(128,32,(g,w,h)=>{ g.fillStyle='#fff'; g.fillRect(0,0,w,h); g.fillStyle='#c4161c'; g.font='bold 22px sans-serif';
+        g.textAlign='center'; g.textBaseline='middle'; g.fillText('BIE 25',w/2,h/2+1); }) })), 0, Hc/2-.07, fz+.003));
+    const r = finish(c); addSign(r, 'bie'); return r;
+  },
+  // Grupo de presión: bancada, bomba principal, jockey, colector, calderín y cuadro
+  box() {
+    const c = new THREE.Group();
+    const redP = shared('pumpRed', () => new THREE.MeshStandardMaterial({ color:0xb3141b, roughness:.4, metalness:.35 }));
+    c.add(mesh(new THREE.BoxGeometry(1.9,.12,.8), MAT.steel, 0,.06,0));
+    c.add(mesh(cylX(.16,.55), MAT.motor, -.45,.32,.1)); c.add(mesh(cylX(.19,.2), redP, -.08,.32,.1)); c.add(mesh(cylX(.05,.25), redP, .12,.32,.1));
+    c.add(mesh(new THREE.CylinderGeometry(.07,.07,.42,20), MAT.motor, .45,.35,.18)); c.add(mesh(new THREE.CylinderGeometry(.08,.08,.12,20), redP, .45,.18,.18));
+    c.add(mesh(cylX(.065,1.7), redP, 0,.95,-.2));
+    c.add(mesh(new THREE.CylinderGeometry(.05,.05,.6,16), redP, .12,.64,-.05));
+    c.add(mesh(new THREE.CylinderGeometry(.035,.035,.55,16), redP, .45,.68,-.02));
+    c.add(mesh(new THREE.CylinderGeometry(.06,.06,.4,16), redP, -.85,1.15,-.2));
+    [-.55,.25].forEach(x => { const v = mesh(new THREE.TorusGeometry(.07,.01,8,24), MAT.chrome, x,1.07,-.2); v.rotation.x = Math.PI/2; c.add(v); });
+    c.add(mesh(new THREE.CylinderGeometry(.17,.17,.62,24), redP, .8,.5,-.15));
+    c.add(mesh(new THREE.SphereGeometry(.17,24,12,0,Math.PI*2,0,Math.PI/2), redP, .8,.81,-.15));
+    c.add(mesh(new THREE.BoxGeometry(.48,.75,.22), MAT.light, -.68,.62,-.25));
+    c.add(mesh(new THREE.SphereGeometry(.022,12,8), ledMat(0x30ff6a,.9), -.78,.86,-.135));
+    c.add(mesh(new THREE.SphereGeometry(.022,12,8), ledMat(0xff2a2a,.1), -.7,.86,-.135));
+    c.add(mesh(new THREE.BoxGeometry(.004,.6,.004), MAT.steel, -.68,.62,-.138));
+    return finish(c);
+  },
+  // Detector óptico de humos analógico con base
+  cone() {
+    const c = new THREE.Group(), led = ledMat(0xff2020, .25);
+    c.add(mesh(cylZ(.058,.014,32), MAT.white, 0,0,0));
+    c.add(mesh(cylZ(.05,.026,32), MAT.white, 0,0,.02));
+    c.add(mesh(cylZ(.047,.012,32), shared('detSlots', () => new THREE.MeshStandardMaterial({ color:0x9a9a96, roughness:.7 })), 0,0,.039));
+    const dome = mesh(new THREE.SphereGeometry(.044,32,12,0,Math.PI*2,0,Math.PI/2), MAT.white, 0,0,.045);
+    dome.scale.set(1,.45,1); dome.rotation.x = Math.PI/2; c.add(dome);
+    c.add(mesh(new THREE.SphereGeometry(.006,10,8), led, .036,.02,.034));
+    return finish(c, [led]);
+  },
+  // Detector lineal de humos: emisor/receptor con lente
+  oct() {
+    const c = new THREE.Group(), led = ledMat(0x30ff6a, .6);
+    c.add(mesh(new THREE.BoxGeometry(.26,.3,.04), MAT.steel, 0,0,-.06));
+    c.add(mesh(new THREE.BoxGeometry(.24,.28,.12), MAT.light, 0,0,0));
+    c.add(mesh(cylZ(.085,.012,32), MAT.black, 0,.02,.064));
+    c.add(mesh(cylZ(.07,.01,32), MAT.lens, 0,.02,.07));
+    c.add(mesh(new THREE.SphereGeometry(.008,10,8), led, .08,-.11,.062));
+    c.add(mesh(new THREE.SphereGeometry(.008,10,8), ledMat(0xffcc00,.1), .055,-.11,.062));
+    return finish(c, [led]);
+  },
+  // Reflector prismático del detector lineal
+  reflector() {
+    const c = new THREE.Group();
+    c.add(mesh(new THREE.BoxGeometry(.34,.34,.03), MAT.black, 0,0,0));
+    c.add(mesh(new THREE.PlaneGeometry(.3,.3), shared('prism', () => new THREE.MeshStandardMaterial({ metalness:.9, roughness:.2,
+      map: canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#bfc6cc'; g.fillRect(0,0,w,h); const s=8;
+        for (let y=0;y<h;y+=s) for (let x=0;x<w;x+=s){ const v=150+((x+y)/s%3)*35; g.fillStyle=`rgb(${v},${v+5},${v+12})`;
+          g.beginPath(); g.moveTo(x+s/2,y); g.lineTo(x+s,y+s/2); g.lineTo(x+s/2,y+s); g.lineTo(x,y+s/2); g.fill(); } }) })), 0,0,.016));
+    return finish(c);
+  },
+  // Pulsador de alarma rearmable con tapa
+  cube() {
+    const c = new THREE.Group(), led = ledMat(0xff2020, .2);
+    c.add(mesh(new THREE.BoxGeometry(.09,.09,.055), shared('pulRed', () => new THREE.MeshStandardMaterial({ color:0xd0101a, roughness:.35 })), 0,0,0));
+    c.add(mesh(new THREE.PlaneGeometry(.062,.062), shared('pulFace', () => new THREE.MeshStandardMaterial({ roughness:.5,
+      map: canvasTex(128,128,(g,w,h)=>{ g.fillStyle='#f5f5f2'; g.fillRect(0,0,w,h); g.strokeStyle='#111'; g.lineWidth=4; g.strokeRect(18,18,w-36,h-36);
+        g.beginPath(); g.moveTo(40,78); g.lineTo(64,54); g.lineTo(88,78); g.lineTo(88,98); g.lineTo(40,98); g.closePath(); g.stroke();
+        g.fillStyle='#111'; g.beginPath(); g.moveTo(64,94); g.quadraticCurveTo(52,82,62,70); g.quadraticCurveTo(66,80,70,76); g.quadraticCurveTo(76,88,64,94); g.fill(); }) })), 0,0,.0285));
+    c.add(mesh(new THREE.PlaneGeometry(.07,.07), MAT.glass, 0,0,.031));
+    c.add(mesh(new THREE.SphereGeometry(.004,8,6), led, .034,.034,.029));
+    const r = finish(c, [led]); addSign(r, 'pul'); return r;
+  },
+  // Sirena con flash
+  ico() {
+    const c = new THREE.Group(), flash = ledMat(0xff3030, .15); flash.transparent = true; flash.opacity = .85;
+    c.add(mesh(cylZ(.065,.05,32), MAT.red, 0,0,0));
+    c.add(mesh(cylZ(.05,.006,32), MAT.black, 0,0,.027));
+    const dome = mesh(new THREE.SphereGeometry(.04,24,12,0,Math.PI*2,0,Math.PI/2), flash, 0,0,.03); dome.rotation.x = Math.PI/2; c.add(dome);
+    return finish(c, [flash]);
+  },
+  // Central analógica con pantalla, LED y teclado
+  panel() {
+    const c = new THREE.Group();
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+    const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace;
+    c.add(mesh(new THREE.BoxGeometry(.46,.36,.12), MAT.light, 0,0,0));
+    c.add(mesh(new THREE.BoxGeometry(.44,.004,.004), MAT.steel, 0,-.06,.061));
+    c.add(mesh(new THREE.PlaneGeometry(.2,.1), new THREE.MeshBasicMaterial({ map:tx, toneMapped:false }), -.07,.08,.0605));
+    const L = { power:ledMat(0x30ff6a,.9), fire:ledMat(0xff2020,.05), fault:ledMat(0xffd400,.05), sys:ledMat(0xffd400,.05) };
+    Object.values(L).forEach((m, i) => c.add(mesh(new THREE.SphereGeometry(.008,10,8), m, .1 + (i%2)*.045, .105 - Math.floor(i/2)*.035, .061)));
+    for (let i=0;i<3;i++) for (let j=0;j<4;j++) c.add(mesh(new THREE.BoxGeometry(.022,.016,.006), MAT.steel, -.13+j*.03, -.015-i*.025, .062));
+    [0x2b2b2b, 0xd0101a, 0xffd400].forEach((cc, i) => c.add(mesh(new THREE.BoxGeometry(.04,.025,.008),
+      new THREE.MeshStandardMaterial({ color:cc, roughness:.4 }), .06 + i*.05, -.11, .062)));
+    const unit = { cv, tx, L }; cdiUnits.push(unit); drawCDI(unit, 'reposo', '');
+    return finish(c);
+  },
+  sphere() { const c = new THREE.Group(); c.add(mesh(new THREE.SphereGeometry(.15,20,14), MAT.light)); return finish(c); },
+};
+const cdiUnits = [];
+function drawCDI(u, state, detail) {
+  const g = u.cv.getContext('2d'), w = 256, h = 128;
+  g.fillStyle = state === 'alarma' ? '#3a0606' : state === 'averia' ? '#2e2a05' : '#0b2a1c'; g.fillRect(0,0,w,h);
+  g.fillStyle = state === 'alarma' ? '#ff6b6b' : state === 'averia' ? '#ffe600' : '#7dffb0';
+  g.font = 'bold 26px monospace'; g.fillText(state === 'alarma' ? 'ALARMA FUEGO' : state === 'averia' ? 'AVERIA' : 'REPOSO', 12, 40);
+  g.font = '17px monospace'; g.fillText((detail || 'Sistema normal').slice(0, 24), 12, 72);
+  g.fillText(new Date().toLocaleTimeString('es-ES'), 12, 104);
+  u.tx.needsUpdate = true;
+}
+
+/* ---------- Colocación ---------- */
+const XL = [0, 10, 26, 40], YL = [0, 10, 14, 18, 24];
+function wallFacing(x, y) {           // muro más próximo y orientación hacia el interior del local
+  let best = null;
+  XL.forEach(X => { const d = Math.abs(x-X); if (!best || d < best.d) best = { d, nx:Math.sign(x-X) || 1, ny:0 }; });
+  YL.forEach(Y => { const d = Math.abs(y-Y); if (d < best.d) best = { d, nx:0, ny:Math.sign(y-Y) || 1 }; });
+  best.rot = best.nx ? (best.nx > 0 ? Math.PI/2 : -Math.PI/2) : (best.ny > 0 ? 0 : Math.PI);
+  return best;
+}
+let EQ_SCALE = 2;
+const KF = { cyl:1, torus:.6, box:.2, cone:3, oct:2, cube:2.5, ico:2.2, panel:.7, sphere:1 };   // exageración por tipo
+const scaleFor = u => 1 + (EQ_SCALE - 1) * (KF[u.type.shape] ?? 1);
+const PIN_GEO = new THREE.SphereGeometry(.08, 18, 12);
+const setLine = (line, a, b) => { line.geometry.setFromPoints([a, b]); line.geometry.computeBoundingSphere(); if (line.material.isLineDashedMaterial) line.computeLineDistances(); };
+
+const pciRoot = new THREE.Group(); scene.add(pciRoot);
+let markers = [], pickables = [], typeState = {}, selected = null;
+const legend = document.getElementById('pci');
+const card = document.getElementById('card');
+const selRing = new THREE.Mesh(new THREE.RingGeometry(.5, .68, 40),
+  new THREE.MeshBasicMaterial({ color:0x33d6ff, transparent:true, opacity:.9, side:THREE.DoubleSide, depthWrite:false }));
+selRing.rotation.x = -Math.PI/2; selRing.visible = false; scene.add(selRing);
+
+function layout(m) {
+  const u = m.userData, sc = scaleFor(u); u.sc = sc;
+  m.scale.setScalar(sc * (m === selected ? 1.3 : 1));
+  const vHalf = (u.mount === 'ceiling' ? u.dim.d : u.dim.h) * sc;
+  let cy = u.h;
+  if (u.mount === 'ceiling' || /superior/i.test(u.hTxt)) cy = u.h - vHalf;
+  else if (/suelo/i.test(u.hTxt)) cy = vHalf;
+  cy = Math.max(cy, vHalf); u.cy = cy;
+  let px = u.px, py = u.py;
+  if (u.mount === 'wall') { const off = u.wall.d - .125 - u.dim.d*sc; px -= u.wall.nx*off; py -= u.wall.ny*off; }
+  m.position.copy(P(px, py, cy));
+  u.pinY = Math.max(cy + vHalf + (u.mount === 'wall' && u.signed ? .32*sc : 0) + .3, .6);
+  u.pin.position.copy(P(u.px, u.py, u.pinY));
+  setLine(u.mast, P(u.px, u.py, .03), P(u.px, u.py, u.pinY - .08));
+  if (u.recv) {
+    const r = u.recv, rs = sc;
+    r.root.scale.setScalar(rs);
+    const off = r.wall.d - .125 - r.dim.d*rs;
+    r.root.position.copy(P(u.xr - r.wall.nx*off, u.yr - r.wall.ny*off, cy));
+    setLine(u.beam, m.position, r.root.position);
+    setLine(r.mast, P(u.xr, u.yr, .03), P(u.xr, u.yr, cy));
+  }
+}
+function layoutAll() { markers.forEach(layout); if (selected) selRing.position.copy(P(selected.userData.px, selected.userData.py, .06)); }
+
+function loadPCI(records) {
+  select(null);
+  pciRoot.clear(); markers = []; pickables = []; typeState = {}; cdiUnits.length = 0;
+  let spare = 0, skipped = 0;
+  records.forEach(rec => {
+    const id = pick(rec, /^id$/);
+    const eq = pick(rec, /^equipo$/) || pick(rec, /^tipo$/) || 'Otro';
+    const x = num(pick(rec, /^x( \(m\))?$/)), y = num(pick(rec, /^y( \(m\))?$/));
+    const hTxt = pick(rec, /^altura/), ubic = pick(rec, /^ubicacion$/);
+    let h = num(hTxt);
+    if (isNaN(x) || isNaN(y)) { skipped++; return; }
+    if (isNaN(h)) h = 1;
+
+    if (!typeState[eq]) {
+      const def = TYPES[eq] || { label:eq, color:SPARE[spare++ % SPARE.length], shape:'sphere' };
+      const g = new THREE.Group(); pciRoot.add(g);
+      typeState[eq] = { ...def, group:g, count:0, visible:true };
+    }
+    const t = typeState[eq]; t.count++;
+
+    const pTit = pick(rec, /^mantenimiento titular/), pEmp = pick(rec, /^mantenimiento empresa/);
+    const last = parseDate(pick(rec, /^ultima rev/));
+    let next = parseDate(pick(rec, /^proxima rev/)), nextDerived = false;
+    if (!next && last) { const mo = periodMonths(pEmp) || periodMonths(pTit); if (mo) { next = addMonths(last, mo); nextDerived = true; } }
+
+    const lineal = /lineal/i.test(eq);
+    const mount = lineal ? 'wall' : (/techo|cubierta/i.test(hTxt) || /^techo/i.test(ubic)) ? 'ceiling' : 'wall';
+    const mdl = (MODELS[t.shape] || MODELS.sphere)();
+    const root = new THREE.Group(); root.add(mdl.group);
+    root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    const wallF = wallFacing(x, y);
+    if (mount === 'ceiling') root.rotation.x = Math.PI/2; else root.rotation.y = wallF.rot;
+
+    let sx = 0, sy = 0, clash = '';
+    if (mount === 'wall' && !lineal) {
+      const others = markers.filter(o => { const v = o.userData; return v.mount === 'wall' && Math.abs(v.x - x) < .6 && Math.abs(v.y - y) < .6; });
+      if (others.length) { clash = others.map(o => o.userData.id).join(', '); if (wallF.ny) sx = others.length; else sy = others.length; }
+    }
+    const px = x + sx, py = y + sy;
+    const pinMat = new THREE.MeshStandardMaterial({ emissiveIntensity:.9, roughness:.3 });
+    const pin = new THREE.Mesh(PIN_GEO, pinMat);
+    const mastMat = new THREE.LineBasicMaterial({ transparent:true, opacity:.35 });
+    const mast = new THREE.Line(new THREE.BufferGeometry(), mastMat);
+    const dotMat = new THREE.MeshBasicMaterial({ transparent:true, opacity:.6 });
+    const dot = new THREE.Mesh(new THREE.CircleGeometry(.18, 16), dotMat);
+    dot.rotation.x = -Math.PI/2; dot.position.copy(P(px, py, 0.035));
+
+    const u = { isEq:true, rec, id, eq, x, y, px, py, clash, h, hTxt, type:t, last, next, nextDerived, pTit, pEmp, mount, wall:wallF,
+      dim:mdl.dim, leds:mdl.leds, signed:['cyl','torus','cube'].includes(t.shape), pin, mast,
+      pins:[pinMat], lines:[mastMat], dots:[dotMat] };
+    root.userData = u; pin.userData = { main:root };
+    t.group.add(root, pin, mast, dot);
+    pickables.push(root, pin); markers.push(root);
+
+    if (lineal) {
+      let xr = num(pick(rec, /^x.*recep/)), yr = num(pick(rec, /^y.*recep/));
+      if ((isNaN(xr) || isNaN(yr)) && RECEPTOR_FALLBACK[id]) [xr, yr] = RECEPTOR_FALLBACK[id];
+      if (!isNaN(xr) && !isNaN(yr)) {
+        const dx = xr - x, dz = yr - y;
+        root.rotation.y = Math.atan2(dx, dz);
+        const rm = MODELS.reflector(), rroot = new THREE.Group(); rroot.add(rm.group);
+        rroot.traverse(o => { if (o.isMesh) o.castShadow = true; });
+        rroot.rotation.y = Math.atan2(-dx, -dz); rroot.userData = { main:root, receptor:true };
+        const beamMat = new THREE.LineDashedMaterial({ dashSize:.7, gapSize:.35, transparent:true, opacity:.9 });
+        const beam = new THREE.Line(new THREE.BufferGeometry(), beamMat);
+        const rmast = new THREE.Line(new THREE.BufferGeometry(), mastMat);
+        t.group.add(rroot, beam, rmast); pickables.push(rroot);
+        Object.assign(u, { xr, yr, beam, recv:{ root:rroot, dim:rm.dim, wall:wallFacing(xr, yr), mast:rmast } });
+        u.lines.push(beamMat);
+      }
+    }
+    layout(root);
+  });
+  refreshStatus();
+  if (skipped) console.warn(`${skipped} filas sin coordenadas X/Y válidas`);
+}
+
+function refreshStatus() {
+  const n = { ok:0, soon:0, late:0, nd:0 };
+  markers.forEach(m => {
+    const u = m.userData; u.status = statusOf(u); n[u.status]++;
+    const c = new THREE.Color(colorMode === 'estado' ? STATUS[u.status].color : u.type.color);
+    u.pins.forEach(mt => { mt.color.copy(c); mt.emissive.copy(c); mt.emissiveIntensity = .9; });
+    u.lines.forEach(l => l.color.copy(c));
+    u.dots.forEach(d => d.color.copy(c));
+    u.leds.forEach(l => { l.color.copy(l.userData.base.c); l.emissive.copy(l.userData.base.c); l.emissiveIntensity = l.userData.base.i; });
+  });
+  document.getElementById('kTot').textContent = markers.length;
+  document.getElementById('kSoon').textContent = n.soon;
+  document.getElementById('kLate').textContent = n.late;
+  document.getElementById('stleg').innerHTML = Object.entries(STATUS)
+    .filter(([k]) => k !== 'nd' || n.nd)
+    .map(([k, s]) => `<li><i style="background:${s.color};box-shadow:0 0 6px ${s.color}"></i>${s.label}<b>${n[k]}</b></li>`).join('');
+  applySimColors();
+  renderLegend();
+  if (selected) renderCard(selected);
+}
+
+function renderLegend() {
+  legend.innerHTML = '';
+  let total = 0;
+  Object.entries(typeState).forEach(([eq, t]) => {
+    total += t.count;
+    const li = document.createElement('li');
+    li.className = t.visible ? '' : 'off';
+    li.title = eq;
+    li.innerHTML = `<svg viewBox="0 0 16 16" fill="${t.color}" stroke="${t.color}">${ICON[t.shape]}</svg>
+      <span>${esc(t.label)}</span><span class="ct">${t.count}</span>`;
+    li.onclick = () => { t.visible = !t.visible; t.group.visible = t.visible; li.classList.toggle('off', !t.visible);
+      if (selected && selected.userData.type === t && !t.visible) select(null); };
+    legend.appendChild(li);
+  });
+  const tot = document.createElement('li'); tot.className = 'total';
+  tot.innerHTML = `<span></span><span>Total equipos</span><span class="ct">${total}</span>`;
+  legend.appendChild(tot);
+}
+
+function select(m) {
+  const prev = selected; selected = m;
+  if (prev) prev.scale.setScalar(prev.userData.sc);
+  if (!m) { card.hidden = true; selRing.visible = false; return; }
+  m.scale.setScalar(m.userData.sc * 1.3);
+  selRing.position.copy(P(m.userData.px, m.userData.py, 0.06)); selRing.visible = true;
+  renderCard(m);
+  card.hidden = false;
+  card.scrollIntoView({ block:'nearest', behavior:'smooth' });
+}
+
+function renderCard(m) {
+  const u = m.userData, r = u.rec, st = STATUS[u.status];
+  const f2 = v => v.toLocaleString('es-ES', { minimumFractionDigits:1, maximumFractionDigits:2 });
+  let dTxt = 'Sin fecha de próxima revisión';
+  if (u.next) {
+    const d = daysTo(u.next);
+    dTxt = d < 0 ? `Vencida hace ${-d} día${d === -1 ? '' : 's'}` : d === 0 ? 'Vence hoy' : `Faltan ${d} día${d === 1 ? '' : 's'}`;
+    dTxt += ` · ref. ${fmtD(REF)}`;
+  }
+  const tipo = pick(r, /^tipo$/), car = pick(r, /^caracteristicas$/), zona = pick(r, /^zona$/),
+        ub = pick(r, /^ubicacion$/), alt = pick(r, /^altura/), normaP = pick(r, /^norma/),
+        est = pick(r, /^estado$/), obs = pick(r, /^observaciones$/);
+  const photos = TYPE_PHOTOS[u.eq];
+  card.style.borderLeftColor = st.color;
+  card.innerHTML = `
+    <div class="cardhd">
+      <div><span class="cap">Ficha del equipo</span><b>${esc(u.id || '—')}</b></div>
+      <button id="cClose" title="Cerrar (Esc)">✕</button>
+    </div>
+    <div class="badge" style="color:${st.color};border-color:${st.color}">● ${st.label}</div> ${simCardRow(m)}
+    <dl>
+      <dt>Tipo</dt><dd>${esc(u.type.label)}${tipo ? `<small>${esc(tipo)}${car ? ' · ' + esc(car) : ''}</small>` : ''}</dd>
+      <dt>Zona</dt><dd>${esc(zona || '—')}${ub ? `<small>${esc(ub)}</small>` : ''}</dd>
+      <dt>Posición</dt><dd>X ${f2(u.x)} · Y ${f2(u.y)} · h ${esc(alt || f2(u.h))}${u.xr !== undefined ? `<small>Receptor: X ${f2(u.xr)} · Y ${f2(u.yr)}</small>` : ''}${u.clash ? `<small>Coincide con ${esc(u.clash)}: en la maqueta se dibuja 1 m al lado</small>` : ''}</dd>
+      <dt>Última rev.</dt><dd>${fmtD(u.last)}</dd>
+      <dt>Próxima rev.</dt><dd style="color:${st.color}">${fmtD(u.next)}${u.nextDerived ? ' <small style="display:inline">(calculada)</small>' : ''}<small>${dTxt}</small></dd>
+      <dt>Periodicidad</dt><dd>Titular: ${esc(u.pTit || '—')}<small>Empresa: ${esc(u.pEmp || '—')}</small></dd>
+      <dt>Normativa</dt><dd>${esc(normaP || '—')}<small>RD 513/2017 (RIPCI), Anexo II</small></dd>
+      ${est ? `<dt>Estado</dt><dd>${esc(est)}</dd>` : ''}
+      ${obs ? `<dt>Notas</dt><dd>${esc(obs)}</dd>` : ''}
+    </dl>
+    <div class="btns"><button id="cFocus">Centrar en la maqueta</button></div>
+    ${photos ? photos.map(photoFig).join('') : `<div class="nophoto">Sin foto real de referencia para este tipo de equipo. El modelo 3D reproduce su aspecto y dimensiones habituales.</div>`}`;
+  document.getElementById('cClose').onclick = () => select(null);
+  document.getElementById('cFocus').onclick = () => {
+    const c = P(u.px, u.py, u.cy);
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    flyTo(c.clone().add(dir.multiplyScalar(5 + 3*u.sc)), c);
+  };
+}
+
+/* ---------- Central de incendios simulada ---------- */
+const SIM = {
+  reposo: { label:'Reposo', color:'#3ee08f' },
+  alarma: { label:'Alarma', color:'#ff3b3b' },
+  averia: { label:'Avería', color:'#ffe600' },
+};
+const ALARM_ON = new THREE.Color('#ff2a2a'), ALARM_OFF = new THREE.Color('#3a0606'), FAULT = new THREE.Color('#ffe600');
+const sim = { zones:{}, alarmDet:new Set(), faults:new Map(), fx:new Map() };
+ZONES.forEach(z => sim.zones[z.id] = 'reposo');
+const zoneOf = rec => (pick(rec, /^zona$/).match(/^Z\d+/i) || [''])[0].toUpperCase();
+const isDetector = u => /detector/i.test(u.eq);
+const hhmmss = () => new Date().toLocaleTimeString('es-ES');
+const simZonesEl = document.getElementById('simZones'), logEl = document.getElementById('log');
+const banner = document.getElementById('alarmBanner');
+
+function logEvent(kind, text) {
+  const li = document.createElement('li'); li.className = kind;
+  li.innerHTML = `<time>${hhmmss()}</time><span>${esc(text)}</span>`;
+  logEl.prepend(li);
+  document.getElementById('logCount').textContent = logEl.children.length;
+}
+
+function renderSim() {
+  simZonesEl.innerHTML = '';
+  ZONES.forEach(z => {
+    const s = SIM[sim.zones[z.id]];
+    const li = document.createElement('li');
+    li.className = 'st-' + sim.zones[z.id];
+    li.title = 'Centrar ' + z.name;
+    li.innerHTML = `<span class="chip" style="background:${z.color}"></span><span class="id">${z.id}</span>
+      <span>${z.name}</span><span class="pill" style="color:${s.color};border-color:${s.color}">${s.label}</span>`;
+    li.onclick = () => focusZone(z);
+    simZonesEl.appendChild(li);
+  });
+  const vals = Object.values(sim.zones);
+  const g = vals.includes('alarma') ? 'alarma' : vals.includes('averia') ? 'averia' : 'reposo';
+  const ge = document.getElementById('simGen'); ge.textContent = SIM[g].label.toUpperCase(); ge.style.color = SIM[g].color;
+  const live = document.querySelector('.status .live');
+  live.textContent = g === 'alarma' ? 'Alarma de incendio' : g === 'averia' ? 'Avería' : 'En línea';
+  live.dataset.state = g;
+  document.body.classList.toggle('alarm', g === 'alarma');
+  // Pantalla y LED de la central física
+  const alarmZ = ZONES.filter(z => sim.zones[z.id] === 'alarma').map(z => z.id).join(' ');
+  const faults = [...sim.faults.keys()].map(m => m.userData.id).join(' ');
+  cdiUnits.forEach(u => {
+    drawCDI(u, g, g === 'alarma' ? 'Zona ' + alarmZ : g === 'averia' ? 'Det. ' + faults : '');
+    u.L.fire.emissiveIntensity = g === 'alarma' ? 2 : .05;
+    u.L.fault.emissiveIntensity = sim.faults.size ? 1.6 : .05;
+  });
+}
+
+function applySimColors() {
+  sim.faults.forEach((tag, m) => {
+    const u = m.userData;
+    u.pins.forEach(mt => { mt.color.copy(FAULT); mt.emissive.copy(FAULT); });
+    u.lines.forEach(l => l.color.copy(FAULT)); u.dots.forEach(d => d.color.copy(FAULT));
+    u.leds.forEach(l => { l.color.copy(FAULT); l.emissive.copy(FAULT); l.emissiveIntensity = 1.4; });
+  });
+}
+
+function simCardRow(m) {
+  if (sim.alarmDet.has(m)) return `<div class="badge" style="color:#ff3b3b;border-color:#ff3b3b">▲ Central: ALARMA DE INCENDIO</div>`;
+  if (sim.faults.has(m))   return `<div class="badge" style="color:#ffe600;border-color:#ffe600">■ Central: AVERÍA</div>`;
+  return '';
+}
+
+// Punto de origen del fuego por zona (cuando no lo fija un detector)
+const FIRE_SPOT = { Z1:[5,5], Z2:[3.5,12], Z3:[5,19.5], Z4:[18,12], Z5:[34,9.2], Z6:[33,21] };
+const flameTex = canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(255,245,200,1)'); gr.addColorStop(.3,'rgba(255,170,50,.95)'); gr.addColorStop(.65,'rgba(230,60,10,.4)'); gr.addColorStop(1,'rgba(120,20,0,0)');
+  g.fillStyle = gr; g.fillRect(0,0,w,h); });
+const smokeTex = canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(90,90,90,.9)'); gr.addColorStop(.6,'rgba(70,70,70,.45)'); gr.addColorStop(1,'rgba(60,60,60,0)');
+  g.fillStyle = gr; g.fillRect(0,0,w,h); });
+function makeFire(x, y) {
+  const g = new THREE.Group(); g.position.copy(P(x, y, 0)); const parts = [];
+  for (let i = 0; i < 16; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:flameTex, blending:THREE.AdditiveBlending, depthWrite:false, transparent:true, toneMapped:false }));
+    g.add(s); parts.push({ s, kind:'f', phase:Math.random(), ox:(Math.random()-.5)*1.3, oz:(Math.random()-.5)*1.3 });
+  }
+  for (let i = 0; i < 26; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:smokeTex, depthWrite:false, transparent:true, opacity:.5 }));
+    g.add(s); parts.push({ s, kind:'s', phase:i/26, ox:(Math.random()-.5)*1.2, oz:(Math.random()-.5)*1.2 });
+  }
+  const char = new THREE.Mesh(new THREE.BoxGeometry(1.2, .5, .8), new THREE.MeshStandardMaterial({ color:0x1d1510, roughness:1 }));
+  char.position.y = .25; char.castShadow = true; g.add(char);
+  const light = new THREE.PointLight(0xff7a20, 40, 16, 1.4); light.position.y = 1.4; g.add(light);
+  scene.add(g); return { g, parts, light };
+}
+function tickFire(f, now) {
+  const t = now / 1000;
+  f.parts.forEach(p => {
+    if (p.kind === 'f') { const k = (t*1.5 + p.phase) % 1, s = 1.5*(1-k) + .4;
+      p.s.scale.set(s, s*1.7, 1); p.s.position.set(p.ox*(1-k), .45 + k*2.4, p.oz*(1-k)); p.s.material.opacity = (1-k)*.95; }
+    else { const k = (t*.11 + p.phase) % 1, s = 1 + k*5.5;
+      p.s.scale.set(s, s, 1); p.s.position.set(p.ox + k*1.6, 1.8 + k*10, p.oz + k*.9); p.s.material.opacity = .5*(1-k)*Math.min(1, k*6); }
+  });
+  f.light.intensity = 28 + 26*Math.random();
+}
+
+let lastAlarm = null;
+function raiseAlarm(zid, opt = {}) {
+  const z = ZONES.find(o => o.id === zid); if (!z) return false;
+  if (sim.zones[zid] === 'alarma') return false;
+  sim.zones[zid] = 'alarma';
+  const trig = opt.equip ? markers.find(m => m.userData.id === opt.equip) : null;
+  const zoneDets = markers.filter(m => isDetector(m.userData) && zoneOf(m.userData.rec) === zid);
+  const blinking = trig ? [trig] : zoneDets;
+  blinking.forEach(m => sim.alarmDet.add(m));
+
+  let [fx, fy] = FIRE_SPOT[zid];
+  if (trig && isDetector(trig.userData)) {
+    const u = trig.userData;
+    [fx, fy] = u.xr !== undefined ? [(u.x + u.xr)/2, (u.y + u.yr)/2] : [u.px, u.py];
+  }
+  const w = z.x1 - z.x0, d = z.y1 - z.y0;
+  const vol = new THREE.Mesh(new THREE.BoxGeometry(w - .3, z.h, d - .3),
+    new THREE.MeshBasicMaterial({ color:0xff2a2a, transparent:true, opacity:.1, depthWrite:false }));
+  vol.position.copy(P((z.x0 + z.x1)/2, (z.y0 + z.y1)/2, z.h/2));
+  const light = new THREE.PointLight(0xff3020, 60, 34, 1);
+  light.position.copy(P((z.x0 + z.x1)/2, (z.y0 + z.y1)/2, 6));
+  scene.add(vol, light);
+  sim.fx.set(zid, { vol, light, zone:z, fire:makeFire(fx, fy) });
+  z.floor.material.color.set('#ff2a2a'); z.floor.material.emissive.set('#ff2a2a');
+  z.outline.material.color.set('#ff2a2a'); z.label.classList.add('alarm');
+
+  const src = trig ? `${isDetector(trig.userData) ? 'detector' : 'pulsador'} ${trig.userData.id}`
+            : zoneDets.length ? `detector ${zoneDets.map(m => m.userData.id).join(', ')}` : '';
+  lastAlarm = { zid, name:z.name, x:fx, y:fy, t:hhmmss(), src, by:opt.by || '', confirms:0, equip:opt.equip || null };
+  updateBanner();
+  banner.hidden = false;
+  logEvent('alarma', `ALARMA DE INCENDIO · ${z.id} ${z.name}${src ? ' · ' + src : ''}${opt.by ? ' · ' + opt.by : ''}`);
+  renderSim(); if (selected) renderCard(selected);
+  document.dispatchEvent(new CustomEvent('gemelo:alarm', { detail:lastAlarm }));
+  return true;
+}
+function updateBanner() {
+  if (!lastAlarm) return;
+  const a = lastAlarm, more = Object.entries(sim.zones).filter(([k, v]) => v === 'alarma' && k !== a.zid).map(([k]) => k);
+  document.getElementById('abSub').innerHTML = `${esc(a.zid)} ${esc(a.name)}${a.src ? ' · ' + esc(a.src) : ''} · ${a.t}` +
+    (a.by ? `<br><span class="by">Activado por ${esc(a.by)}</span>` : '') +
+    (more.length ? `<br><span class="by">También en alarma: ${more.join(', ')}</span>` : '') +
+    (a.confirms ? `<br><span class="by">+${a.confirms} confirmaciones desde móviles</span>` : '');
+}
+function fireWarehouse() { if (!raiseAlarm('Z5')) logEvent('info', 'Z5 Almacén ya está en alarma'); }
+
+function faultDetector() {
+  const cands = markers.filter(m => isDetector(m.userData) && zoneOf(m.userData.rec) === 'Z3' && !sim.faults.has(m));
+  if (!cands.length) { logEvent('info', 'No quedan detectores de Z3 sin avería'); return; }
+  const m = cands[0], u = m.userData;
+  const el = document.createElement('div'); el.className = 'faulttag'; el.textContent = 'AVERÍA ' + (u.id || '');
+  const tag = new CSS2DObject(el); tag.position.copy(P(u.px, u.py, u.pinY + .6)); scene.add(tag);
+  sim.faults.set(m, tag);
+  if (sim.zones.Z3 !== 'alarma') sim.zones.Z3 = 'averia';
+  logEvent('averia', `AVERÍA · Z3 Oficinas · detector ${u.id} (${pick(u.rec, /^tipo$/) || u.type.label}) fuera de servicio`);
+  refreshStatus(); renderSim();
+}
+
+function simReset() {
+  const had = Object.values(sim.zones).some(s => s !== 'reposo');
+  Object.keys(sim.zones).forEach(k => sim.zones[k] = 'reposo');
+  sim.alarmDet.clear();
+  sim.faults.forEach(tag => scene.remove(tag)); sim.faults.clear();
+  sim.fx.forEach(f => { scene.remove(f.vol, f.light, f.fire.g); f.vol.geometry.dispose(); }); sim.fx.clear();
+  lastAlarm = null;
+  if (had) document.dispatchEvent(new CustomEvent('gemelo:rearm'));
+  ZONES.forEach(z => {
+    z.floor.material.color.set(z.color); z.floor.material.emissive.set(z.color);
+    z.outline.material.color.set(z.color); z.label.classList.remove('alarm');
+  });
+  markers.forEach(m => m.scale.setScalar(m.userData.sc * (m === selected ? 1.3 : 1)));
+  banner.hidden = true;
+  try { const a = active; active = undefined; highlight(a); } catch (e) { /* aún no inicializado */ }
+  return had;
+}
+
+function rearm() {
+  const had = simReset();
+  refreshStatus(); renderSim();
+  logEvent('rearme', had ? 'Central rearmada · todas las zonas en reposo' : 'Rearme sin incidencias activas');
+}
+
+function simTick(now) {
+  sim.fx.forEach(f => {
+    const p = (Math.sin(now / 220) + 1) / 2, z = f.zone;
+    f.vol.material.opacity = .05 + .13 * p;
+    f.light.intensity = 25 + 80 * p;
+    z.floor.material.opacity = .35 + .35 * p;
+    z.floor.material.emissiveIntensity = .4 + .6 * p;
+    tickFire(f.fire, now);
+  });
+  if (sim.alarmDet.size) {
+    const on = Math.floor(now / 300) % 2 === 0;
+    sim.alarmDet.forEach(m => {
+      const u = m.userData, c = on ? ALARM_ON : ALARM_OFF;
+      u.pins.forEach(mt => { mt.color.copy(c); mt.emissive.copy(c); mt.emissiveIntensity = on ? 2 : .1; });
+      u.leds.forEach(mt => { mt.color.copy(c); mt.emissive.copy(c); mt.emissiveIntensity = on ? 3 : .1; });
+      u.lines.forEach(l => l.color.copy(c)); u.dots.forEach(d => d.color.copy(c));
+      if (m !== hovered) m.scale.setScalar(u.sc * (on ? 1.3 : 1.1));
+    });
+  }
+}
+
+document.getElementById('sFire').onclick = fireWarehouse;
+document.getElementById('sFault').onclick = faultDetector;
+document.getElementById('sReset').onclick = rearm;
+document.getElementById('abHide').onclick = () => { banner.hidden = true; logEvent('info', 'Aviso en pantalla ocultado por el operador (la alarma sigue activa)'); };
+document.getElementById('abZone').onclick = () => focusZone(ZONES.find(o => o.id === (lastAlarm ? lastAlarm.zid : 'Z5')));
+
+/* ---------- Carga del inventario ---------- */
+function loadText(text, name) {
+  try {
+    if (simReset()) { renderSim(); logEvent('info', 'Inventario recargado · central rearmada'); }
+    loadPCI(parseCSV(text));
+    const n = document.getElementById('csvName'); n.textContent = name; n.style.color = '';
+  } catch (err) { console.error(err); alertBox('No se pudo leer el CSV: ' + err.message); }
+}
+function alertBox(msg) { const n = document.getElementById('csvName'); n.textContent = msg; n.style.color = '#ff6b8a'; }
+
+let hovered = null;
+loadText(document.getElementById('pci-csv').textContent, 'inventario-pci-nave (integrado, revisiones demo)');
+renderSim();
+{ const c = markers.find(m => /central/i.test(m.userData.eq));
+  logEvent('rearme', `Central ${c ? c.userData.id + ' ' : ''}en servicio · ${ZONES.length} zonas en reposo`); }
+
+const fCsv = document.getElementById('fCsv');
+document.getElementById('bCsv').onclick = () => fCsv.click();
+fCsv.onchange = () => { const f = fCsv.files[0]; if (f) f.text().then(t => loadText(t, f.name)); fCsv.value = ''; };
+addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drag'); });
+addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drag'); });
+addEventListener('drop', e => {
+  e.preventDefault(); document.body.classList.remove('drag');
+  const f = e.dataTransfer.files[0]; if (f) f.text().then(t => loadText(t, f.name));
+});
+
+document.getElementById('refDate').addEventListener('change', e => {
+  const d = parseDate(e.target.value); if (d) { REF = d; refreshStatus(); }
+});
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+  colorMode = b.dataset.mode;
+  document.querySelectorAll('.seg button').forEach(o => o.classList.toggle('on', o === b));
+  refreshStatus();
+});
+const eqScale = document.getElementById('eqScale');
+eqScale.addEventListener('input', () => {
+  EQ_SCALE = +eqScale.value;
+  document.getElementById('eqScaleV').textContent = '×' + String(EQ_SCALE).replace('.', ',');
+  layoutAll();
+  sim.faults.forEach((tag, m) => tag.position.copy(P(m.userData.px, m.userData.py, m.userData.pinY + .6)));
+});
+
+/* ---------- Galería y visor de fotos ---------- */
+document.getElementById('galGrid').innerHTML = ['nave','nave2','det','bie','bie2'].map(photoFig).join('');
+const lb = document.getElementById('lb');
+document.addEventListener('click', e => {
+  const img = e.target.closest('figure.ph img'); if (!img) return;
+  const p = PHOTOS[img.closest('figure').dataset.k];
+  lb.querySelector('img').src = imgURL(p.file, 1600);
+  lb.querySelector('figcaption').innerHTML = `${esc(p.title)}<small>Foto: ${esc(p.author)} · <a href="${pageURL(p.file)}" target="_blank" rel="noopener">${esc(p.lic)} · Wikimedia Commons</a></small>`;
+  lb.hidden = false;
+});
+lb.addEventListener('click', e => { if (!e.target.closest('a')) lb.hidden = true; });
+addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!lb.hidden) lb.hidden = true; else if (!document.getElementById('qr').hidden) document.getElementById('qr').hidden = true; else select(null); });
+
+/* ---------- Panel de zonas ---------- */
+const fmt = n => n.toLocaleString('es-ES');
+const ul = document.getElementById('zones');
+ZONES.forEach(z => {
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="chip" style="background:${z.color};box-shadow:0 0 8px ${z.color}"></span>
+    <span class="id">${z.id}</span>
+    <span class="nm">${z.name}<small>X ${z.x0}–${z.x1} · Y ${z.y0}–${z.y1} · h ${z.h} m</small></span>
+    <span class="ar">${fmt(z.area)} m²<small>${fmt(z.vol)} m³</small></span>`;
+  li.addEventListener('mouseenter', () => highlight(z));
+  li.addEventListener('mouseleave', () => highlight(null));
+  li.addEventListener('click', () => focusZone(z));
+  z.row = li; ul.appendChild(li);
+});
+document.getElementById('tArea').innerHTML = `${fmt(ZONES.reduce((s,z)=>s+z.area,0))} <i>m²</i>`;
+document.getElementById('tVol').innerHTML = `${fmt(ZONES.reduce((s,z)=>s+z.vol,0))} <i>m³</i>`;
+
+let active = null;
+function highlight(z) {
+  if (active === z) return;
+  active = z;
+  ZONES.forEach(o => {
+    const on = o === z;
+    o.floor.material.opacity = on ? 0.4 : 0.06;
+    o.floor.material.emissiveIntensity = on ? 0.45 : 0.12;
+    o.outline.material.opacity = on ? 1 : 0.45;
+    o.label.classList.toggle('on', on);
+    o.row.classList.toggle('on', on);
+  });
+}
+
+/* ---------- Transiciones de cámara ---------- */
+let anim = null;
+function flyTo(pos, tgt, dur = 900) {
+  anim = { p0:camera.position.clone(), t0:controls.target.clone(), p1:pos, t1:tgt, s:performance.now(), dur };
+}
+function focusZone(z) {
+  const c = P((z.x0+z.x1)/2, (z.y0+z.y1)/2, 0);
+  const size = Math.max(z.x1-z.x0, z.y1-z.y0, z.h*1.6);
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  flyTo(c.clone().add(dir.multiplyScalar(size*2.1 + 6)), c.clone().setY(z.h*0.3));
+}
+document.getElementById('bHome').onclick = () => flyTo(HOME.pos.clone(), HOME.tgt.clone());
+document.getElementById('bTop').onclick = () => flyTo(new THREE.Vector3(0, 58, 0.01), new THREE.Vector3(0, 0, 0));
+const bW = document.getElementById('bWalls');
+bW.onclick = () => { wallGroup.visible = !wallGroup.visible; bW.classList.toggle('off', !wallGroup.visible); };
+
+/* ---------- Ratón: ficha emergente, selección y zonas ---------- */
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+const tip = document.getElementById('tip');
+let downAt = null;
+const f1 = v => v.toLocaleString('es-ES', { minimumFractionDigits:1, maximumFractionDigits:2 });
+const restScale = o => o.scale.setScalar(o.userData.sc * (o === selected ? 1.3 : 1));
+function hitEquip() {
+  const hits = ray.intersectObjects(pickables.filter(o => o.parent.visible), true);
+  for (const h of hits) {
+    let o = h.object;
+    while (o && !o.userData.isEq && !o.userData.main) o = o.parent;
+    if (o) return o.userData.main || o;
+  }
+  return null;
+}
+function setRay(e) {
+  mouse.set(e.clientX/innerWidth*2-1, -(e.clientY/innerHeight)*2+1);
+  ray.setFromCamera(mouse, camera);
+}
+renderer.domElement.addEventListener('pointermove', e => {
+  setRay(e);
+  const m = hitEquip();
+  if (hovered && hovered !== m) { restScale(hovered); hovered = null; }
+  if (m) {
+    hovered = m; m.scale.setScalar(m.userData.sc * (m === selected ? 1.45 : 1.25));
+    const u = m.userData, r = u.rec, st = STATUS[u.status];
+    const zona = pick(r, /^zona$/), alt = pick(r, /^altura/);
+    tip.style.borderLeftColor = st.color;
+    tip.innerHTML = `<b>${esc(u.id || '—')}</b> · ${esc(u.type.label)}<br>
+      <span class="d">${esc(zona)}</span><br>
+      X ${f1(u.x)} · Y ${f1(u.y)} · h ${esc(alt || f1(u.h))}<br>
+      <span style="color:${st.color}">● ${st.short}</span> <span class="d">· próx. ${fmtD(u.next)}</span><br>
+      <span class="d">Clic para ver la ficha${TYPE_PHOTOS[u.eq] ? ' y la foto' : ''}</span>`;
+    tip.style.display = 'block';
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - 310) + 'px';
+    tip.style.top = Math.min(e.clientY + 14, innerHeight - tip.offsetHeight - 8) + 'px';
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    tip.style.display = 'none';
+    renderer.domElement.style.cursor = '';
+  }
+  const hit = ray.intersectObjects(floors)[0];
+  highlight(hit ? hit.object.userData.zone : null);
+});
+renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || e.button !== 0) { downAt = null; return; }
+  const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]); downAt = null;
+  if (moved > 5) return;
+  setRay(e);
+  const m = hitEquip();
+  if (m) select(m);
+});
+renderer.domElement.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+renderer.domElement.addEventListener('dblclick', () => { if (active) focusZone(active); });
+
+
+/* =====================================================================
+   EVACUACIÓN · recorridos máximos (RSCIEI RD 164/2025, Anexo III, sec. 3)
+   y simulación de tiempos de evacuación por agentes
+   ===================================================================== */
+const EV = {
+  res:.25, NX:160, NY:96, CL:.2,                 // retícula 0,25 m · holgura 0,20 m a paramentos
+  risk:'medio', inc:'0', showMap:true, z2maint:false, dockExit:false,
+  persons:{ Z1:4, Z2:1, Z3:8, Z4:20, Z5:6, Z6:4 },
+  blocked:new Set(),
+  sim:{ v:1.2, tAlarm:30, rMin:30, rMax:90, fs:1.3, speed:10 },
+};
+// Tabla 2.3.1: [una salida, sin alternativa (≥2 salidas), hasta la salida más próxima (≥2 salidas)]
+const LIM = { bajo:[50,50,65], medio:[35,35,50], alto:[20,20,35] };
+function limits() {
+  const [l1, la, l2] = LIM[EV.risk];
+  const f = EV.inc === '25' ? 1.25 : EV.inc === '100' ? 2 : 1;
+  const cap = v => EV.inc === '100' ? Math.min(v*f, 90) : v*f;
+  return { one:cap(l1), alt:cap(la), two:cap(l2) };
+}
+const occCalc = p => p <= 0 ? 0 : p < 100 ? Math.ceil(1.10*p - 1e-9) : p < 200 ? Math.ceil(110 + 1.05*(p-100) - 1e-9)
+  : p < 500 ? Math.ceil(215 + 1.03*(p-200) - 1e-9) : Math.ceil(524 + 1.01*(p-500) - 1e-9);
+
+const NC = EV.NX * EV.NY;
+const gx = i => (i + .5) * EV.res, gy = j => (j + .5) * EV.res;
+let free, zoneIdx, doorAt;
+function buildGrid() {
+  free = new Uint8Array(NC).fill(1); zoneIdx = new Int8Array(NC).fill(-1); doorAt = new Int16Array(NC).fill(-1);
+  const CL = EV.CL, rackY0 = Y_START - .15, rackY1 = Y_START + BAYS*BAY + .15;
+  const bulky = markers.filter(m => m.userData.type.shape === 'box').map(m => {   // grupo de presión
+    const b = new THREE.Box3().setFromObject(m);
+    return { x0:b.min.x + W/2 - .2, x1:b.max.x + W/2 + .2, y0:b.min.z + D/2 - .2, y1:b.max.z + D/2 + .2 };
+  });
+  for (let j = 0; j < EV.NY; j++) for (let i = 0; i < EV.NX; i++) {
+    const x = gx(i), y = gy(j), k = j*EV.NX + i;
+    zoneIdx[k] = ZONES.findIndex(z => x >= z.x0 && x < z.x1 && y >= z.y0 && y < z.y1);
+    if (WALL_RECTS.some(r => r.base === 0 && x > r.x0-CL && x < r.x1+CL && y > r.y0-CL && y < r.y1+CL)) free[k] = 0;
+    if (COLS.some(c => Math.abs(x-c.x) < .3 && Math.abs(y-c.y) < .3)) free[k] = 0;
+    if (RACK_LINES.some(([a, b]) => x > a-.1 && x < b+.1 && y > rackY0 && y < rackY1)) free[k] = 0;
+    if (bulky.some(r => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1)) free[k] = 0;
+    OPENINGS.forEach((o, oi) => {
+      if (o.kind === 'dock' && !EV.dockExit) return;
+      const along = o.line === 'y' ? x : y, across = o.line === 'y' ? y : x;
+      if (Math.abs(across - o.at) <= T/2 + CL + .01 && along > o.c - o.w/2 + CL && along < o.c + o.w/2 - CL) { free[k] = 1; doorAt[k] = oi; }
+    });
+  }
+}
+
+// Dijkstra sobre retícula con 16 direcciones (error de longitud < 3 % frente a la línea recta)
+const MOVES = [];
+[[1,0],[0,1],[-1,0],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1],[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(([di, dj]) => {
+  const req = [], si = Math.sign(di), sj = Math.sign(dj);
+  if (Math.abs(di) === 1 && Math.abs(dj) === 1) req.push([di,0],[0,dj]);
+  else if (Math.abs(di) === 2) req.push([si,0],[si,sj]);
+  else if (Math.abs(dj) === 2) req.push([0,sj],[si,sj]);
+  MOVES.push({ di, dj, c:Math.hypot(di, dj) * EV.res, req });
+});
+function dijkstra(seeds) {
+  const dist = new Float64Array(NC).fill(Infinity), pred = new Int32Array(NC).fill(-1);
+  const hk = [], hd = [];
+  const push = (d, k) => { let n = hk.length; hk.push(k); hd.push(d);
+    while (n > 0) { const p = (n-1) >> 1; if (hd[p] <= hd[n]) break; [hk[p],hk[n]] = [hk[n],hk[p]]; [hd[p],hd[n]] = [hd[n],hd[p]]; n = p; } };
+  const pop = () => { const k = hk[0], d = hd[0], lk = hk.pop(), ld = hd.pop();
+    if (hk.length) { hk[0] = lk; hd[0] = ld; let n = 0;
+      for (;;) { const l = 2*n+1, r = l+1; let m = n;
+        if (l < hk.length && hd[l] < hd[m]) m = l; if (r < hk.length && hd[r] < hd[m]) m = r;
+        if (m === n) break; [hk[m],hk[n]] = [hk[n],hk[m]]; [hd[m],hd[n]] = [hd[n],hd[m]]; n = m; } }
+    return [d, k]; };
+  seeds.forEach(k => { dist[k] = 0; push(0, k); });
+  while (hk.length) {
+    const [d, k] = pop(); if (d > dist[k]) continue;
+    const i = k % EV.NX, j = (k / EV.NX) | 0;
+    for (const mv of MOVES) {
+      const ni = i + mv.di, nj = j + mv.dj;
+      if (ni < 0 || nj < 0 || ni >= EV.NX || nj >= EV.NY) continue;
+      const nk = nj*EV.NX + ni; if (!free[nk]) continue;
+      let ok = true; for (const [ri, rj] of mv.req) if (!free[(j+rj)*EV.NX + (i+ri)]) { ok = false; break; }
+      if (!ok) continue;
+      const nd = d + mv.c;
+      if (nd < dist[nk]) { dist[nk] = nd; pred[nk] = k; push(nd, nk); }
+    }
+  }
+  return { dist, pred };
+}
+
+let EVR = null;
+function analyse() {
+  const L = limits();
+  const exits = OPENINGS.map((o, oi) => ({ o, oi }))
+    .filter(e => (e.o.kind === 'exit' || (e.o.kind === 'dock' && EV.dockExit)) && !EV.blocked.has(e.o.id));
+  const fields = exits.map(e => { const seeds = []; for (let k = 0; k < NC; k++) if (doorAt[k] === e.oi) seeds.push(k); return { e, ...dijkstra(seeds) }; });
+  const near = new Float64Array(NC).fill(Infinity), nearF = new Int8Array(NC).fill(-1), nReach = new Uint8Array(NC);
+  for (let k = 0; k < NC; k++) fields.forEach((f, fi) => {
+    if (f.dist[k] < Infinity) { nReach[k]++; if (f.dist[k] < near[k]) { near[k] = f.dist[k]; nearF[k] = fi; } }
+  });
+  // Puntos desde los que parten al menos dos recorridos alternativos (direcciones a dos salidas que difieren > 45°)
+  const altSeeds = [];
+  for (let k = 0; k < NC; k++) {
+    if (!free[k] || nearF[k] < 0) continue;
+    if (near[k] === 0) { altSeeds.push(k); continue; }
+    const dirs = [];
+    fields.forEach(f => { const p = f.pred[k]; if (p >= 0) { const dx = (p % EV.NX) - (k % EV.NX), dy = ((p / EV.NX) | 0) - ((k / EV.NX) | 0), l = Math.hypot(dx, dy); dirs.push([dx/l, dy/l]); } });
+    let br = false;
+    for (let a = 0; a < dirs.length && !br; a++) for (let b = a+1; b < dirs.length; b++) if (dirs[a][0]*dirs[b][0] + dirs[a][1]*dirs[b][1] < .7071) { br = true; break; }
+    if (br) altSeeds.push(k);
+  }
+  const alt = dijkstra(altSeeds);
+  const zr = ZONES.map(z => ({ z, maxN:0, kN:-1, maxA:0, kA:-1, fail:0, cells:0, unreach:0, excluded:z.id === 'Z2' && EV.z2maint }));
+  for (let k = 0; k < NC; k++) {
+    const zi = zoneIdx[k]; if (zi < 0 || !free[k] || doorAt[k] >= 0) continue;
+    const r = zr[zi]; if (r.excluded) continue;
+    r.cells++;
+    if (nearF[k] < 0) { r.unreach++; r.fail++; continue; }
+    if (near[k] > r.maxN) { r.maxN = near[k]; r.kN = k; }
+    if (alt.dist[k] > r.maxA && alt.dist[k] < Infinity) { r.maxA = alt.dist[k]; r.kA = k; }
+    const ok = nReach[k] >= 2 ? (near[k] <= L.two && alt.dist[k] <= L.alt) : near[k] <= L.one;
+    if (!ok) r.fail++;
+  }
+  zr.forEach(r => { r.nR = r.kN >= 0 ? nReach[r.kN] : 0; r.ok = r.fail === 0; });
+  EVR = { L, exits, fields, near, nearF, nReach, alt, zr };
+}
+function tracePath(k, field) {        // celdas desde k hasta la semilla siguiendo el predecesor
+  const out = [k]; let c = k, guard = 0;
+  while (field.dist[c] > 0 && field.pred[c] >= 0 && guard++ < 5000) { c = field.pred[c]; out.push(c); }
+  return out;
+}
+const cellXY = k => [gx(k % EV.NX), gy((k / EV.NX) | 0)];
+function losFree(a, b) {
+  const [x0, y0] = a, [x1, y1] = b, n = Math.ceil(Math.hypot(x1-x0, y1-y0) / (EV.res*.5));
+  for (let s = 1; s < n; s++) { const x = x0 + (x1-x0)*s/n, y = y0 + (y1-y0)*s/n;
+    const i = Math.floor(x/EV.res), j = Math.floor(y/EV.res); if (!free[j*EV.NX + i]) return false; }
+  return true;
+}
+function simplify(pts) {
+  const out = [pts[0]]; let i = 0;
+  while (i < pts.length - 1) { let j = pts.length - 1; while (j > i+1 && !losFree(pts[i], pts[j])) j--; out.push(pts[j]); i = j; }
+  return out;
+}
+
+/* ---------- Visualización ---------- */
+const evacGroup = new THREE.Group(); scene.add(evacGroup);
+const heatCanvas = document.createElement('canvas'); heatCanvas.width = EV.NX; heatCanvas.height = EV.NY;
+const heatTex = new THREE.CanvasTexture(heatCanvas); heatTex.colorSpace = THREE.SRGBColorSpace;
+const heatMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-Math.PI/2),
+  new THREE.MeshBasicMaterial({ map:heatTex, transparent:true, opacity:.62, depthWrite:false, toneMapped:false }));
+heatMesh.position.y = .028; heatMesh.renderOrder = 2;
+function heatColor(r) {
+  const st = [[0,[46,204,113]],[.6,[170,222,60]],[.85,[255,196,40]],[1,[255,128,30]]];
+  if (r > 1) return [228,32,44];
+  for (let i = 1; i < st.length; i++) if (r <= st[i][0]) { const [a, ca] = st[i-1], [b, cb] = st[i], t = (r-a)/(b-a); return ca.map((v, n) => v + (cb[n]-v)*t); }
+  return st[st.length-1][1];
+}
+function drawHeat() {
+  const g = heatCanvas.getContext('2d'), img = g.createImageData(EV.NX, EV.NY), L = EVR.L;
+  for (let k = 0; k < NC; k++) {
+    const p = k*4, zi = zoneIdx[k];
+    if (!free[k] || zi < 0) { img.data[p+3] = 0; continue; }
+    if (EVR.nearF[k] < 0) { img.data.set([120,0,20,230], p); continue; }
+    const lim = EVR.nReach[k] >= 2 ? L.two : L.one, d = EVR.near[k];
+    let [r, gg, b] = heatColor(d / lim), a = 200;
+    const i = k % EV.NX, iso = (n) => n >= 0 && n < NC && free[n] && EVR.near[n] < Infinity && Math.floor(EVR.near[n]/5) !== Math.floor(d/5);
+    if ((i < EV.NX-1 && iso(k+1)) || iso(k+EV.NX)) { r *= .45; gg *= .45; b *= .45; a = 235; }   // isolíneas cada 5 m
+    if (ZONES[zi] && EVR.zr[zi].excluded) a = 60;
+    img.data.set([r, gg, b, a], p);
+  }
+  g.putImageData(img, 0, 0); heatTex.needsUpdate = true;
+}
+const fmt1 = v => v.toLocaleString('es-ES', { minimumFractionDigits:1, maximumFractionDigits:1 });
+function drawRoutes() {
+  evacGroup.clear();
+  evacGroup.add(heatMesh); drawHeat();
+  const L = EVR.L;
+  EVR.zr.forEach(r => {
+    if (r.excluded || r.kN < 0) return;
+    const f = EVR.fields[EVR.nearF[r.kN]];
+    const pts = simplify(tracePath(r.kN, f).map(cellXY));
+    const col = r.ok ? 0xffffff : 0xff3b3b;
+    const curve = new THREE.CurvePath();
+    for (let i = 0; i < pts.length - 1; i++) curve.add(new THREE.LineCurve3(P(pts[i][0], pts[i][1], .14), P(pts[i+1][0], pts[i+1][1], .14)));
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, pts.length*6), .055, 6, false),
+      new THREE.MeshBasicMaterial({ color:col, toneMapped:false }));
+    evacGroup.add(tube);
+    // flechas de sentido
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = P(pts[i][0], pts[i][1], .14), b = P(pts[i+1][0], pts[i+1][1], .14), len = a.distanceTo(b);
+      for (let s = 1.5; s < len; s += 3) {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(.16, .4, 10), new THREE.MeshBasicMaterial({ color:col, toneMapped:false }));
+        cone.position.copy(a.clone().lerp(b, s/len)); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), b.clone().sub(a).normalize());
+        evacGroup.add(cone);
+      }
+    }
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .06, 20), new THREE.MeshBasicMaterial({ color:col, toneMapped:false }));
+    o.position.copy(P(pts[0][0], pts[0][1], .05)); evacGroup.add(o);
+    const lim = r.nR >= 2 ? L.two : L.one;
+    const el = document.createElement('div'); el.className = 'evl ' + (r.ok ? 'ok' : 'ko');
+    el.innerHTML = `<b>${r.z.id}</b> ${fmt1(r.maxN)} m <i>/ ${fmt1(lim)}</i>`;
+    const lab = new CSS2DObject(el); lab.position.copy(P(pts[0][0], pts[0][1], 1.3)); evacGroup.add(lab);
+  });
+  OPENINGS.forEach(o => {
+    if (o.kind !== 'exit' && !(o.kind === 'dock' && EV.dockExit)) return;
+    const blocked = EV.blocked.has(o.id);
+    const el = document.createElement('div'); el.className = 'evx-tag' + (blocked ? ' off' : '');
+    el.textContent = blocked ? `${o.id} ✕ bloqueada` : o.id;
+    const t = new CSS2DObject(el); t.position.copy(P(o.c, o.at + (o.at === 0 ? -.8 : .8), 2.6)); evacGroup.add(t);
+    if (blocked) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(o.w, .25, .3), new THREE.MeshBasicMaterial({ color:0xff2a2a, toneMapped:false }));
+      bar.position.copy(P(o.c, o.at, 1.05)); evacGroup.add(bar);
+      const bar2 = bar.clone(); bar.rotation.z = .9; bar2.rotation.z = -.9; evacGroup.add(bar2);
+    }
+  });
+  evacGroup.visible = EV.showMap;
+}
+
+/* ---------- Panel ---------- */
+const $ = id => document.getElementById(id);
+function renderEvacPanel() {
+  const L = EVR.L;
+  $('evLim').innerHTML = `Una salida: <b>${fmt1(L.one)} m</b> · Con dos o más salidas: <b>${fmt1(L.two)} m</b> hasta la salida más próxima y <b>${fmt1(L.alt)} m</b> hasta un punto con dos recorridos alternativos`;
+  let totP = 0, totp = 0;
+  const rows = EVR.zr.map((r, zi) => {
+    const p = EV.persons[r.z.id] | 0, Pz = occCalc(p); totp += p; totP += Pz;
+    const lim = r.nR >= 2 ? `${fmt1(L.two)} / ${fmt1(L.alt)}` : fmt1(L.one);
+    const st = r.excluded ? '<span class="na">excl.</span>' : r.ok ? '<span class="ok">✓</span>' : '<span class="ko">✗</span>';
+    return `<tr data-zi="${zi}" class="${r.excluded ? 'ex' : r.ok ? '' : 'bad'}">
+      <td><i class="chip" style="background:${r.z.color}"></i>${r.z.id}</td>
+      <td><input type="number" min="0" max="999" value="${p}" data-z="${r.z.id}"></td><td>${Pz}</td>
+      <td>${r.excluded ? '—' : r.unreach ? '<span class="ko">sin salida</span>' : fmt1(r.maxN)}</td>
+      <td>${r.excluded || r.nR < 2 ? '—' : fmt1(r.maxA)}</td><td>${r.excluded ? '—' : lim}</td><td>${st}</td></tr>`;
+  }).join('');
+  $('evTable').innerHTML = `<thead><tr><th>Zona</th><th title="Personas (p)">p</th><th title="Ocupación de cálculo P">P</th>
+    <th title="Recorrido máximo hasta la salida más próxima">Máx. salida</th><th title="Recorrido máximo hasta un punto con dos alternativas">Sin alt.</th>
+    <th>Límite</th><th></th></tr></thead><tbody>${rows}</tbody>`;
+  const area = ZONES.reduce((s, z) => s + z.area, 0), nEx = EVR.exits.length;
+  totP = occCalc(totp);
+  const need2 = EV.risk === 'alto' ? area > 50 : (area > 50 && totP > 50);
+  $('evOcc').innerHTML = `Ocupación de cálculo del establecimiento como un único sector: <b>P = ${totP}</b> (p = ${totp} personas; P = 1,10 p si p &lt; 100). La columna P aplica la misma fórmula zona a zona, y es la que se usa en la simulación.<br>
+    Salidas disponibles: <b>${nEx}</b>. ${need2 ? `Se exigen al menos dos salidas alternativas (ap. 3.1.1): <b class="${nEx >= 2 ? 'ok' : 'ko'}">${nEx >= 2 ? 'cumple' : 'no cumple'}</b>.` : 'No se exigen dos salidas alternativas por ocupación (ap. 3.1.1).'}`;
+  $('evTable').querySelectorAll('input').forEach(inp => inp.onchange = () => { EV.persons[inp.dataset.z] = Math.max(0, +inp.value | 0); renderEvacPanel(); });
+  $('evTable').querySelectorAll('tbody tr').forEach(tr => tr.onclick = e => {
+    if (e.target.tagName === 'INPUT') return;
+    const r = EVR.zr[+tr.dataset.zi]; if (r.kN < 0) return;
+    const [x, y] = cellXY(r.kN), c = P(x, y, 0);
+    flyTo(c.clone().add(new THREE.Vector3(-6, 14, 12)), c);
+  });
+  $('evExits').innerHTML = OPENINGS.filter(o => o.kind === 'exit' || (o.kind === 'dock' && EV.dockExit)).map(o => {
+    const cnt = SIMV.result ? (SIMV.result.byExit[o.id] || 0) : null;
+    return `<li><label><input type="checkbox" data-x="${o.id}" ${EV.blocked.has(o.id) ? '' : 'checked'}>
+      <b>${o.id}</b> ${o.name}</label><span>${fmt1(o.w)} m${cnt !== null ? ` · ${cnt} pers.` : ''}</span></li>`;
+  }).join('');
+  $('evExits').querySelectorAll('input').forEach(inp => inp.onchange = () => {
+    inp.checked ? EV.blocked.delete(inp.dataset.x) : EV.blocked.add(inp.dataset.x);
+    logEvent('info', `Evacuación: salida ${inp.dataset.x} ${inp.checked ? 'disponible' : 'bloqueada'}`);
+    recompute();
+  });
+}
+function recompute(rebuild = false) {
+  const t0 = performance.now();
+  if (rebuild) buildGrid();
+  const t1 = performance.now(); analyse();
+  const t2 = performance.now(); drawRoutes();
+  const t3 = performance.now(); renderEvacPanel();
+}
+
+/* ---------- Simulación por agentes ---------- */
+const SIMV = { running:false, t:0, agents:[], doors:[], hist:[], result:null, lastChart:0 };
+const bodyIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(.2, .22, 1.2, 10).translate(0, .6, 0),
+  new THREE.MeshStandardMaterial({ roughness:.6 }), 600);
+const headIM = new THREE.InstancedMesh(new THREE.SphereGeometry(.13, 12, 8).translate(0, 1.42, 0),
+  new THREE.MeshStandardMaterial({ color:0xe8c4a0, roughness:.6 }), 600);
+bodyIM.count = headIM.count = 0; bodyIM.castShadow = headIM.castShadow = true;
+scene.add(bodyIM, headIM);
+const AG_COL = { wait:new THREE.Color('#8fa6bf'), move:new THREE.Color('#2fd27a'), queue:new THREE.Color('#ffb02e') };
+
+function startEvac() {
+  if (!EVR) recompute(true);
+  const rr = rng((Date.now() % 1e6) | 0);
+  SIMV.doors = OPENINGS.map(o => ({ o, cap:EV.sim.fs * Math.max(o.w - .3, .3), next:0, queue:[], count:0, maxQ:0, last:0 }));
+  SIMV.agents = []; SIMV.hist = []; SIMV.t = 0; SIMV.result = null;
+  let noExit = 0;
+  ZONES.forEach((z, zi) => {
+    const n = occCalc(EV.persons[z.id] | 0); if (!n) return;
+    const cand = []; for (let k = 0; k < NC; k++) if (zoneIdx[k] === zi && free[k] && doorAt[k] < 0) cand.push(k);
+    for (let q = 0; q < n && cand.length; q++) {
+      const k = cand.splice((rr() * cand.length) | 0, 1)[0];
+      if (EVR.nearF[k] < 0) { noExit++; continue; }
+      const cells = tracePath(k, EVR.fields[EVR.nearF[k]]);
+      const path = cells.map(cellXY), cum = [0], doors = [];
+      for (let i = 1; i < path.length; i++) cum.push(cum[i-1] + Math.hypot(path[i][0]-path[i-1][0], path[i][1]-path[i-1][1]));
+      cells.forEach((c, i) => { const d = doorAt[c]; if (d >= 0 && (!doors.length || doors[doors.length-1].d !== d)) doors.push({ d, s:cum[i] }); });
+      SIMV.agents.push({ zone:z.id, path, cum, doors, di:0, s:0, pi:0, v:EV.sim.v * (.85 + .3*rr()),
+        t0:EV.sim.tAlarm + EV.sim.rMin + rr()*(EV.sim.rMax - EV.sim.rMin), state:'wait', tOut:null, exit:null, x:path[0][0], y:path[0][1] });
+    }
+  });
+  bodyIM.count = headIM.count = Math.min(SIMV.agents.length, 600);
+  SIMV.running = true; SIMV.noExit = noExit;
+  $('evRes').innerHTML = noExit ? `<div class="ko">${noExit} personas no tienen salida accesible.</div>` : '';
+  logEvent('info', `Simulación de evacuación iniciada · ${SIMV.agents.length} personas · salidas: ${EVR.exits.map(e => e.o.id).join(', ') || 'ninguna'}`);
+  updateAgents();
+}
+function passDoor(a, Dd, t) {
+  Dd.next = Math.max(Dd.next, t) + 1/Dd.cap; Dd.count++; Dd.last = t;
+  a.s = Math.max(a.s, a.doors[a.di].s); a.di++; a.state = 'move';
+  if (a.di >= a.doors.length) { a.state = 'out'; a.tOut = t; a.exit = Dd.o.id; }
+}
+function stepEvac(dt) {
+  const t = SIMV.t;
+  SIMV.doors.forEach(Dd => { while (Dd.queue.length && Dd.next <= t) passDoor(Dd.queue.shift(), Dd, t); Dd.maxQ = Math.max(Dd.maxQ, Dd.queue.length); });
+  SIMV.agents.forEach(a => {
+    if (a.state === 'out' || a.state === 'queue') return;
+    if (t < a.t0) { a.state = 'wait'; return; }
+    a.state = 'move';
+    const ns = a.s + a.v*dt, dn = a.doors[a.di];
+    if (dn && ns >= dn.s) {
+      const Dd = SIMV.doors[dn.d];
+      if (!Dd.queue.length && Dd.next <= t) { a.s = dn.s; passDoor(a, Dd, t); }
+      else { a.s = Math.max(a.s, dn.s - .5*(Dd.queue.length + 1)); a.state = 'queue'; Dd.queue.push(a); }
+    } else a.s = Math.min(ns, a.cum[a.cum.length-1]);
+  });
+  SIMV.t += dt;
+}
+function agentXY(a) {
+  while (a.pi < a.cum.length - 2 && a.cum[a.pi+1] < a.s) a.pi++;
+  while (a.pi > 0 && a.cum[a.pi] > a.s) a.pi--;
+  const s0 = a.cum[a.pi], s1 = a.cum[a.pi+1] ?? s0, f = s1 > s0 ? (a.s - s0)/(s1 - s0) : 0;
+  const p0 = a.path[a.pi], p1 = a.path[a.pi+1] ?? p0;
+  return [p0[0] + (p1[0]-p0[0])*f, p0[1] + (p1[1]-p0[1])*f];
+}
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s1 = new THREE.Vector3(1,1,1), _s0 = new THREE.Vector3(0,0,0);
+function updateAgents() {
+  SIMV.agents.slice(0, 600).forEach((a, i) => {
+    if (a.state === 'out') { _m4.compose(new THREE.Vector3(), _q, _s0); }
+    else { const [x, y] = agentXY(a); _m4.compose(P(x, y, 0), _q, _s1); bodyIM.setColorAt(i, AG_COL[a.state]); }
+    bodyIM.setMatrixAt(i, _m4); headIM.setMatrixAt(i, _m4);
+  });
+  bodyIM.instanceMatrix.needsUpdate = headIM.instanceMatrix.needsUpdate = true;
+  if (bodyIM.instanceColor) bodyIM.instanceColor.needsUpdate = true;
+}
+const mmss = s => `${Math.floor(s/60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function finishEvac() {
+  SIMV.running = false;
+  const ag = SIMV.agents, tot = ag.length;
+  const tEnd = Math.max(0, ...ag.map(a => a.tOut ?? 0));
+  const byExit = {}, byZone = {};
+  ag.forEach(a => { byExit[a.exit] = (byExit[a.exit] || 0) + 1; byZone[a.zone] = Math.max(byZone[a.zone] || 0, a.tOut); });
+  const tPreMax = Math.max(0, ...ag.map(a => a.t0));
+  const moveMax = Math.max(0, ...ag.map(a => a.tOut - a.t0));
+  const qmax = SIMV.doors.filter(d => d.maxQ > 0).sort((a, b) => b.maxQ - a.maxQ)[0];
+  SIMV.result = { tEnd, byExit, byZone };
+  $('evRes').innerHTML = `
+    <div class="evkpi"><div><span>Tiempo total de evacuación</span><b>${mmss(tEnd)}</b><i>${fmt1(tEnd)} s</i></div>
+      <div><span>Personas evacuadas</span><b>${tot}</b><i>${SIMV.noExit ? SIMV.noExit + ' sin salida' : 'todas'}</i></div></div>
+    <table class="evt small"><thead><tr><th>Zona</th><th>Personas</th><th>Vaciado</th></tr></thead><tbody>
+      ${ZONES.filter(z => byZone[z.id] !== undefined).map(z => `<tr><td>${z.id} ${z.name}</td><td>${ag.filter(a => a.zone === z.id).length}</td><td>${mmss(byZone[z.id])}</td></tr>`).join('')}
+    </tbody></table>
+    <table class="evt small"><thead><tr><th>Salida</th><th>Personas</th><th>Última</th><th>Cola máx.</th></tr></thead><tbody>
+      ${SIMV.doors.filter(d => d.o.kind !== 'door' && d.count).map(d => `<tr><td>${d.o.id}</td><td>${d.count}</td><td>${mmss(d.last)}</td><td>${d.maxQ}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="evnote">Detección y alarma ${EV.sim.tAlarm} s · reacción ${EV.sim.rMin}–${EV.sim.rMax} s (pre-movimiento máx. ${fmt1(tPreMax)} s) ·
+      desplazamiento máx. ${fmt1(moveMax)} s${qmax ? ` · mayor cola: ${qmax.o.id} (${qmax.maxQ} pers.)` : ''}.</div>`;
+  logEvent('rearme', `Evacuación completada en ${mmss(tEnd)} (${fmt1(tEnd)} s) · ${tot} personas · ${Object.entries(byExit).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
+  renderEvacPanel(); drawChart(true);
+}
+function drawChart(final = false) {
+  const cv = $('evChart'), g = cv.getContext('2d'), w = cv.width, h = cv.height, pad = { l:44, r:12, t:14, b:30 };
+  g.clearRect(0, 0, w, h);
+  const N = SIMV.agents.length || 1, H = SIMV.hist;
+  const tMax = Math.max(60, Math.ceil(((final && SIMV.result) ? SIMV.result.tEnd : SIMV.t) / 30) * 30);
+  const X = t => pad.l + (w - pad.l - pad.r) * t / tMax, Y = n => h - pad.b - (h - pad.t - pad.b) * n / N;
+  g.strokeStyle = '#24384a'; g.fillStyle = '#6c8296'; g.font = '18px monospace'; g.lineWidth = 1;
+  for (let t = 0; t <= tMax; t += tMax > 240 ? 60 : 30) { g.beginPath(); g.moveTo(X(t), pad.t); g.lineTo(X(t), h - pad.b); g.stroke(); g.fillText(mmss(t), X(t) - 18, h - 8); }
+  [0, .5, 1].forEach(f => { g.beginPath(); g.moveTo(pad.l, Y(N*f)); g.lineTo(w - pad.r, Y(N*f)); g.stroke(); g.fillText(Math.round(N*f), 4, Y(N*f) + 6); });
+  g.setLineDash([6, 5]); g.strokeStyle = '#ff6b6b'; g.beginPath(); g.moveTo(X(EV.sim.tAlarm), pad.t); g.lineTo(X(EV.sim.tAlarm), h - pad.b); g.stroke(); g.setLineDash([]);
+  const line = (key, col) => { g.strokeStyle = col; g.lineWidth = 3; g.beginPath(); H.forEach((p, i) => i ? g.lineTo(X(p.t), Y(p[key])) : g.moveTo(X(p.t), Y(p[key]))); g.stroke(); };
+  line('queue', '#ffb02e'); line('move', '#33d6ff'); line('out', '#2fd27a');
+  g.fillStyle = '#2fd27a'; g.fillText('evacuados', w - 150, pad.t + 14); g.fillStyle = '#33d6ff'; g.fillText('en marcha', w - 150, pad.t + 34);
+  g.fillStyle = '#ffb02e'; g.fillText('en cola', w - 150, pad.t + 54);
+}
+function advance(simDt) {            // devuelve true al terminar
+  while (simDt > 1e-9) { const dt = Math.min(.1, simDt); stepEvac(dt); simDt -= dt;
+    if (!SIMV.hist.length || SIMV.t - SIMV.hist[SIMV.hist.length-1].t >= 1) {
+      const c = { t:SIMV.t, out:0, move:0, queue:0, wait:0 }; SIMV.agents.forEach(a => c[a.state]++); SIMV.hist.push(c); }
+    if (SIMV.agents.every(a => a.state === 'out') || SIMV.t > 3600) { updateAgents(); finishEvac(); return true; }
+  }
+  return false;
+}
+function evacTick(now, realDt) {
+  if (!SIMV.running) return;
+  if (advance(Math.min(realDt, .1) * EV.sim.speed)) return;
+  updateAgents();
+  const out = SIMV.agents.filter(a => a.state === 'out').length;
+  $('evT').textContent = mmss(SIMV.t); $('evN').textContent = `${out} / ${SIMV.agents.length} evacuados`;
+  if (now - SIMV.lastChart > 400) { drawChart(); SIMV.lastChart = now; }
+}
+
+/* ---------- Controles ---------- */
+$('evRisk').onchange = e => { EV.risk = e.target.value; recompute(); };
+$('evInc').onchange = e => { EV.inc = e.target.value; recompute(); };
+$('evMap').onchange = e => { EV.showMap = e.target.checked; evacGroup.visible = EV.showMap; };
+$('evZ2').onchange = e => { EV.z2maint = e.target.checked; recompute(); };
+$('evDock').onchange = e => { EV.dockExit = e.target.checked; recompute(true); };
+[['evV','v'],['evTa','tAlarm'],['evRmin','rMin'],['evRmax','rMax'],['evFs','fs']].forEach(([id, k]) => {
+  const el = $(id); el.value = EV.sim[k]; el.onchange = () => { EV.sim[k] = Math.max(0, parseFloat(String(el.value).replace(',', '.')) || 0); };
+});
+$('evSpeed').onchange = e => { EV.sim.speed = +e.target.value; };
+$('evRun').onclick = () => { if (EV.sim.rMax < EV.sim.rMin) [EV.sim.rMin, EV.sim.rMax] = [EV.sim.rMax, EV.sim.rMin]; startEvac(); };
+$('evFast').onclick = () => { if (EV.sim.rMax < EV.sim.rMin) [EV.sim.rMin, EV.sim.rMax] = [EV.sim.rMax, EV.sim.rMin]; startEvac(); advance(3601); };
+$('evStop').onclick = () => { if (SIMV.running) { SIMV.running = false; logEvent('info', `Simulación de evacuación detenida en ${mmss(SIMV.t)}`); }
+  SIMV.agents = []; bodyIM.count = headIM.count = 0; $('evT').textContent = '0:00'; $('evN').textContent = '—'; };
+$('evToggle').onclick = () => document.body.classList.toggle('evac-off');
+$('evClose').onclick = () => document.body.classList.add('evac-off');
+if (innerWidth < 1100) document.body.classList.add('evac-off');
+
+recompute(true);
+drawChart();
+
+/* =====================================================================
+   DRON DE RECONOCIMIENTO (virtual) con cámara en pantalla
+   ===================================================================== */
+const DRONE_PAD = [33, 29.5];
+const droneG = new THREE.Group(), props = [];
+(() => {
+  const white = new THREE.MeshStandardMaterial({ color:0xe9ecef, metalness:.25, roughness:.35 });
+  const dk = new THREE.MeshStandardMaterial({ color:0x23272c, metalness:.5, roughness:.45 });
+  const propM = new THREE.MeshStandardMaterial({ color:0x9aa3ab, transparent:true, opacity:.35, depthWrite:false });
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; droneG.add(m); return m; };
+  add(new THREE.BoxGeometry(.2, .08, .32), white, 0, 0, 0);
+  add(new THREE.SphereGeometry(.1, 16, 10, 0, Math.PI*2, 0, Math.PI/2), white, 0, .03, .02).scale.set(1, .5, 1.5);
+  [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx, sz]) => {
+    const arm = add(new THREE.CylinderGeometry(.014, .014, .3, 8), dk, sx*.12, 0, sz*.13); arm.rotation.z = Math.PI/2; arm.rotation.y = sx*sz*.75;
+    add(new THREE.CylinderGeometry(.03, .03, .05, 12), dk, sx*.22, .03, sz*.23);
+    const pr = add(new THREE.CylinderGeometry(.15, .15, .004, 24), propM, sx*.22, .06, sz*.23); props.push(pr);
+  });
+  add(new THREE.BoxGeometry(.02, .1, .22), dk, .08, -.08, 0); add(new THREE.BoxGeometry(.02, .1, .22), dk, -.08, -.08, 0);
+  add(new THREE.SphereGeometry(.045, 14, 10), dk, 0, -.06, .15);
+  add(new THREE.SphereGeometry(.012, 8, 6), new THREE.MeshStandardMaterial({ color:0xff2020, emissive:0xff2020, emissiveIntensity:2 }), -.06, 0, .17);
+  add(new THREE.SphereGeometry(.012, 8, 6), new THREE.MeshStandardMaterial({ color:0x20ff60, emissive:0x20ff60, emissiveIntensity:2 }), .06, 0, .17);
+  droneG.scale.setScalar(2.4);
+  // Helipuerto
+  const padTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#3a3d41'; g.beginPath(); g.arc(128,128,124,0,Math.PI*2); g.fill();
+    g.strokeStyle = '#e2bd1c'; g.lineWidth = 10; g.beginPath(); g.arc(128,128,110,0,Math.PI*2); g.stroke();
+    g.fillStyle = '#f2f2ee'; g.font = 'bold 130px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('H', 128, 136); });
+  const pad = new THREE.Mesh(new THREE.CircleGeometry(2.2, 40).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ map:padTex, transparent:true, roughness:.8 }));
+  pad.position.copy(P(DRONE_PAD[0], DRONE_PAD[1], .012)); pad.receiveShadow = true; scene.add(pad);
+})();
+const DR = { state:'idle', pos:P(DRONE_PAD[0], DRONE_PAD[1], .3), tgt:null, ang:0, yaw:Math.PI, cruise:12.5, hover:5.5 };
+droneG.position.copy(DR.pos); droneG.rotation.y = DR.yaw; scene.add(droneG);
+const droneCam = new THREE.PerspectiveCamera(62, 16/10, .1, 300);
+const pipEl = document.getElementById('pip');
+
+function droneGo(x, y, zid) {
+  const z = ZONES.find(o => o.id === zid);
+  DR.tgt = { x, y, zid, h: z && z.h <= 3 ? 5 : 6.5 };
+  if (DR.state === 'idle' || DR.state === 'land') DR.state = 'takeoff'; else DR.state = 'cruise-up';
+  pipEl.hidden = false;
+  logEvent('info', `Dron de reconocimiento despegando hacia ${zid || 'el foco'}`);
+}
+function droneHome() { if (DR.state === 'idle') return; DR.state = 'return-up'; }
+function moveTo(v, tx, ty, th, sh, sv, dt) {         // devuelve true al llegar
+  const t = P(tx, ty, th), dx = t.x - v.x, dz = t.z - v.z, dh = Math.hypot(dx, dz);
+  if (dh > .05) { const st = Math.min(dh, sh*dt); v.x += dx/dh*st; v.z += dz/dh*st; DR.yaw = Math.atan2(dx, dz); }
+  const dy = t.y - v.y; v.y += Math.sign(dy) * Math.min(Math.abs(dy), sv*dt);
+  return dh < .1 && Math.abs(dy) < .05;
+}
+const DSTATE = { takeoff:'Despegando', 'cruise-up':'Ascendiendo', cruise:'En ruta al foco', descend:'Descendiendo', orbit:'Sobre el foco',
+  'return-up':'Regresando', 'return':'Regresando', land:'Aterrizando', idle:'En base' };
+function droneTick(now, dt) {
+  const v = DR.pos;
+  if (VIEWER) viewerTick(now, dt); else switch (DR.state) {
+    case 'takeoff': case 'cruise-up':
+      if (moveTo(v, v.x + W/2, v.z + D/2, DR.cruise, 0, 3.5, dt)) DR.state = 'cruise'; break;
+    case 'cruise':
+      if (moveTo(v, DR.tgt.x, DR.tgt.y, DR.cruise, 8, 3.5, dt)) DR.state = 'descend'; break;
+    case 'descend':
+      if (moveTo(v, DR.tgt.x + 3, DR.tgt.y, DR.tgt.h, 3, 2.5, dt)) { DR.state = 'orbit'; DR.ang = 0;
+        logEvent('alarma', `Dron: confirmación visual de humo y llama en ${DR.tgt.zid} (detección por visión simulada)`); } break;
+    case 'orbit': {
+      DR.ang += dt * .32;
+      const t = P(DR.tgt.x + Math.cos(DR.ang)*3, DR.tgt.y + Math.sin(DR.ang)*3, DR.tgt.h);
+      v.lerp(t, Math.min(1, dt*3)); const c = P(DR.tgt.x, DR.tgt.y); DR.yaw = Math.atan2(c.x - v.x, c.z - v.z); break; }
+    case 'return-up':
+      if (moveTo(v, v.x + W/2, v.z + D/2, DR.cruise, 0, 3.5, dt)) DR.state = 'return'; break;
+    case 'return':
+      if (moveTo(v, DRONE_PAD[0], DRONE_PAD[1], DR.cruise, 8, 3.5, dt)) DR.state = 'land'; break;
+    case 'land':
+      if (moveTo(v, DRONE_PAD[0], DRONE_PAD[1], .3, 1, 2.5, dt)) { DR.state = 'idle'; pipEl.hidden = true; } break;
+  }
+  droneG.position.copy(v);
+  if (DR.state !== 'idle') droneG.position.y += Math.sin(now/300) * .05;
+  droneG.rotation.y += ((DR.yaw - droneG.rotation.y + Math.PI*3) % (Math.PI*2) - Math.PI) * Math.min(1, dt*4);
+  const spin = DR.state === 'idle' ? 0 : dt*70; props.forEach(p => p.rotation.y += spin);
+  // Cámara del dron
+  if (!pipEl.hidden) {
+    droneCam.position.copy(v).add(new THREE.Vector3(0, -.3, 0));
+    const look = DR.tgt && ['descend','orbit'].includes(DR.state) ? P(DR.tgt.x, DR.tgt.y, 1)
+      : v.clone().add(new THREE.Vector3(Math.sin(DR.yaw)*8, -6, Math.cos(DR.yaw)*8));
+    droneCam.lookAt(look);
+    const hx = v.x + W/2, hy = v.z + D/2;
+    document.getElementById('pipState').textContent = DSTATE[DR.state] || '';
+    document.getElementById('pipData').textContent = `ALT ${v.y.toFixed(1).replace('.', ',')} m · X ${hx.toFixed(1).replace('.', ',')} · Y ${hy.toFixed(1).replace('.', ',')} · BAT ${Math.max(20, 96 - Math.floor(now/20000) % 60)} %`;
+    const det = document.getElementById('pipDet');
+    det.hidden = DR.state !== 'orbit';
+    if (!det.hidden) det.querySelector('b').textContent = (0.91 + 0.06*Math.abs(Math.sin(now/900))).toFixed(2).replace('.', ',');
+  }
+}
+function renderPip() {
+  if (pipEl.hidden) return;
+  const r = pipEl.getBoundingClientRect();
+  droneCam.aspect = r.width / r.height; droneCam.updateProjectionMatrix();
+  renderer.setScissorTest(true);
+  renderer.setScissor(r.left, innerHeight - r.bottom, r.width, r.height);
+  renderer.setViewport(r.left, innerHeight - r.bottom, r.width, r.height);
+  renderer.render(scene, droneCam);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, innerWidth, innerHeight);
+}
+
+/* =====================================================================
+   EN DIRECTO: participación del público desde el móvil (MQTT)
+   ===================================================================== */
+const LIVE_DEF = { broker:'wss://broker.emqx.io:8084/mqtt', url:'', sala:'', autoDrone:true, autoEvac:true, blockExits:true, voteSecs:20 };
+const LIVE = (() => { let s = {}; try { s = JSON.parse(localStorage.getItem('gemelo-live') || '{}'); } catch (e) {} return { ...LIVE_DEF, ...s }; })();
+const newSala = () => Array.from({ length:5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('');
+if (!LIVE.sala) LIVE.sala = newSala();
+const saveLive = () => { try { localStorage.setItem('gemelo-live', JSON.stringify(LIVE)); } catch (e) {} };
+saveLive();
+const topicBase = () => `gemelo-nave-pci/${LIVE.sala}`;
+let mq = null, mqOn = false, muted = false, vote = null, simPublic = null;
+const peers = new Map(), lastTrig = new Map();
+const autoBlocked = new Set();
+
+function activePeers() { const now = performance.now(); let n = 0; peers.forEach(p => { if (now - p.seen < 60000) n++; }); return n; }
+function setLiveStatus(err) {
+  const dot = $('lvDot'), txt = $('lvTxt');
+  dot.className = 'lvdot ' + (mqOn ? 'on' : err ? 'err' : '');
+  txt.textContent = mqOn ? `Sala ${LIVE.sala}` : err ? err : 'Sin conexión';
+  $('lvConn').textContent = mqOn ? 'Desconectar' : 'Conectar';
+  $('lvMute').textContent = muted ? 'Público: pausado' : 'Público: activo';
+  $('lvMute').classList.toggle('warn', muted);
+}
+function liveConnect() {
+  if (mq) { mq.end(true); mq = null; mqOn = false; }
+  if (!window.mqtt) { setLiveStatus('Falta la librería MQTT (requiere internet)'); return; }
+  setLiveStatus('Conectando…');
+  mq = mqtt.connect(LIVE.broker, { clientId:'gemelo-' + Math.random().toString(16).slice(2, 10), keepalive:30, reconnectPeriod:4000, connectTimeout:8000, clean:true });
+  mq.on('connect', () => { mqOn = true; mq.subscribe(topicBase() + '/in'); setLiveStatus(); publishState(); logEvent('info', `En directo: conectado · sala ${LIVE.sala}`); });
+  mq.on('close', () => { if (mqOn) logEvent('info', 'En directo: conexión perdida, reintentando…'); mqOn = false; setLiveStatus(); });
+  mq.on('error', e => setLiveStatus('Error: ' + (e && e.message || e)));
+  mq.on('message', (t, payload) => { let m; try { m = JSON.parse(payload.toString()); } catch (e) { return; } onPublic(m); });
+}
+function liveDisconnect() { if (mq) { mq.end(true); mq = null; } mqOn = false; setLiveStatus(); }
+
+function trigger(uid, name, kind, id) {
+  const now = performance.now();
+  if (now - (lastTrig.get(uid) || -1e9) < 8000) return;           // 1 acción cada 8 s por asistente
+  lastTrig.set(uid, now);
+  const mk = markers.find(x => x.userData.id === id); if (!mk) return;
+  const isDet = isDetector(mk.userData); if ((kind === 'det') !== isDet) return;
+  const zid = zoneOf(mk.userData.rec); if (!zid) return;
+  if (sim.zones[zid] === 'alarma') { if (lastAlarm) { lastAlarm.confirms++; updateBanner(); } toast(`${name} confirma la alarma en ${zid} (${id})`); return; }
+  raiseAlarm(zid, { equip:id, by:`${name} desde su móvil` });
+  toast(`${name} ha ${isDet ? 'activado el detector' : 'pulsado'} ${id}`, true);
+}
+function onPublic(m) {
+  if (!m || typeof m.uid !== 'string') return;
+  const uid = m.uid.slice(0, 40), name = String(m.name || 'Asistente').replace(/[<>&"]/g, '').slice(0, 24) || 'Asistente';
+  const known = peers.has(uid);
+  peers.set(uid, { name, seen:performance.now() });
+  if (!known) renderLiveCount();
+  if (m.t === 'hello' || muted) return;
+  if (m.t === 'vote') { if (vote && vote.open && ZONES.some(z => z.id === m.zone)) { vote.votes.set(uid, m.zone); renderVote(); } return; }
+  if (m.t === 'det' || m.t === 'pul') trigger(uid, name, m.t, String(m.id || ''));
+}
+function equipList() {
+  return markers.filter(m => isDetector(m.userData) || /pulsador/i.test(m.userData.eq))
+    .map(m => ({ id:m.userData.id, k:isDetector(m.userData) ? 'det' : 'pul', tipo:pick(m.userData.rec, /^tipo$/) || m.userData.type.label,
+      z:zoneOf(m.userData.rec), u:pick(m.userData.rec, /^ubicacion$/) }));
+}
+const voteCounts = () => { const c = {}; ZONES.forEach(z => c[z.id] = 0); if (vote) vote.votes.forEach(z => c[z]++); return c; };
+function livePhase() {
+  if (vote && vote.open) return 'vote';
+  if (Object.values(sim.zones).includes('alarma')) return 'alarm';
+  return 'idle';
+}
+let lastPub = 0;
+function publishState() {
+  if (VIEWER) return;
+  lastPub = performance.now();
+  renderLiveCount();
+  if (!mqOn) return;
+  const st = {
+    v:1, phase:livePhase(), muted, sala:LIVE.sala, n:activePeers(),
+    zones:ZONES.map(z => ({ id:z.id, name:z.name, st:sim.zones[z.id], x0:z.x0, x1:z.x1, y0:z.y0, y1:z.y1 })),
+    equip:equipList(),
+    alarm:lastAlarm ? { zone:lastAlarm.zid, name:lastAlarm.name, src:lastAlarm.src, by:lastAlarm.by, t:lastAlarm.t, confirms:lastAlarm.confirms, equip:lastAlarm.equip } : null,
+    vote:vote ? { open:vote.open, left:Math.max(0, Math.ceil((vote.ends - performance.now())/1000)), counts:voteCounts(), total:vote.votes.size, winner:vote.winner || null } : null,
+    evac:SIMV.agents.length ? { running:SIMV.running, t:Math.round(SIMV.t), out:SIMV.agents.filter(a => a.state === 'out').length,
+      total:SIMV.agents.length, exits:EVR ? EVR.exits.map(e => e.o.id) : [] } : null,
+    exitsBlocked:[...EV.blocked], ts:Date.now(),
+  };
+  mq.publish(topicBase() + '/state', JSON.stringify(st), { retain:true, qos:0 });
+}
+
+/* ---------- Votación ---------- */
+function startVote() {
+  if (vote && vote.open) return;
+  vote = { open:true, ends:performance.now() + LIVE.voteSecs*1000, votes:new Map(), winner:null };
+  $('vote').hidden = false; renderVote();
+  logEvent('info', `Votación abierta: ¿dónde empieza el fuego? (${LIVE.voteSecs} s)`);
+  publishState();
+}
+function endVote() {
+  vote.open = false;
+  const c = voteCounts(), max = Math.max(...Object.values(c));
+  const tops = Object.keys(c).filter(k => c[k] === max);
+  vote.winner = tops[Math.floor(Math.random()*tops.length)];
+  renderVote();
+  logEvent('info', `Votación cerrada: gana ${vote.winner} con ${max} de ${vote.votes.size} votos`);
+  publishState();
+  setTimeout(() => { raiseAlarm(vote.winner, { by:`votación del público (${max} de ${vote.votes.size} votos)` }); }, 1500);
+  setTimeout(() => { $('vote').hidden = true; }, 4500);
+}
+function renderVote() {
+  if (!vote) return;
+  const c = voteCounts(), tot = Math.max(1, vote.votes.size), left = Math.max(0, Math.ceil((vote.ends - performance.now())/1000));
+  $('voteT').textContent = vote.open ? `${left} s` : `Gana ${vote.winner}`;
+  $('voteN').textContent = `${vote.votes.size} votos`;
+  $('voteBars').innerHTML = ZONES.map(z => `<div class="vb ${vote.winner === z.id ? 'win' : ''}"><span>${z.id} ${z.name}</span>
+    <i style="width:${(c[z.id]/tot*100).toFixed(1)}%;background:${z.color}"></i><b>${c[z.id]}</b></div>`).join('');
+}
+
+/* ---------- QR, avisos y contador ---------- */
+function publicURL() {
+  if (!LIVE.url) return '';
+  const sep = LIVE.url.includes('?') ? '&' : '?';
+  return `${LIVE.url}${sep}sala=${LIVE.sala}${LIVE.broker !== LIVE_DEF.broker ? '&b=' + encodeURIComponent(LIVE.broker) : ''}`;
+}
+function showQR(on = true) {
+  const box = $('qr'); box.hidden = !on; if (!on) return;
+  const url = publicURL();
+  $('qrSala').textContent = LIVE.sala;
+  if (!url) { $('qrImg').innerHTML = '<div class="noqr">Indica en ⚙ la dirección pública de la página del público (publico.html).</div>'; $('qrUrl').textContent = ''; return; }
+  $('qrUrl').textContent = url;
+  if (window.qrcode) { const q = qrcode(0, 'M'); q.addData(url); q.make(); $('qrImg').innerHTML = q.createSvgTag({ cellSize:8, margin:2, scalable:true }); }
+  else $('qrImg').innerHTML = '<div class="noqr">No se pudo cargar el generador de QR (requiere internet). Comparte la dirección de abajo.</div>';
+}
+function renderLiveCount() { const n = activePeers(); $('lvN').textContent = n; $('qrN').textContent = n; }
+function toast(text, hot = false) {
+  const t = document.createElement('div'); t.className = 'toast' + (hot ? ' hot' : ''); t.textContent = text;
+  $('toasts').prepend(t); setTimeout(() => t.classList.add('out'), 4200); setTimeout(() => t.remove(), 5000);
+  while ($('toasts').children.length > 5) $('toasts').lastChild.remove();
+}
+
+/* ---------- Reacciones automáticas a la alarma ---------- */
+document.addEventListener('gemelo:alarm', e => {
+  if (VIEWER) return;
+  const a = e.detail;
+  if (LIVE.autoDrone && (DR.state === 'idle' || DR.state.startsWith('return') || DR.state === 'land')) droneGo(a.x, a.y, a.zid);
+  if (LIVE.blockExits) {
+    OPENINGS.filter(o => o.kind === 'exit' && o.zone === a.zid && !EV.blocked.has(o.id)).forEach(o => {
+      EV.blocked.add(o.id); autoBlocked.add(o.id); logEvent('info', `Salida ${o.id} bloqueada por el incendio en ${a.zid}`); });
+    recompute();
+  }
+  if (LIVE.autoEvac && !SIMV.running) setTimeout(() => { if (!SIMV.running && livePhase() === 'alarm') startEvac(); }, 600);
+  publishState();
+});
+document.addEventListener('gemelo:rearm', () => {
+  if (VIEWER) return;
+  droneHome();
+  if (autoBlocked.size) { autoBlocked.forEach(id => EV.blocked.delete(id)); autoBlocked.clear(); recompute(); }
+  if (SIMV.running || SIMV.agents.length) $('evStop').click();
+  publishState();
+});
+
+/* ---------- Ensayo sin público: asistentes simulados ---------- */
+function toggleSimPublic() {
+  if (simPublic) { clearInterval(simPublic); simPublic = null; $('lvSim').textContent = 'Ensayo: público simulado'; return; }
+  const fake = Array.from({ length:70 }, (_, i) => ({ uid:'sim-' + i, name:['Ana','Luis','Marta','Javier','Lucía','Pablo','Sara','Diego','Elena','Raúl'][i%10] + ' ' + (i+1) }));
+  fake.forEach(f => onPublic({ t:'hello', ...f }));
+  simPublic = setInterval(() => {
+    fake.forEach(f => { if (Math.random() < .05) onPublic({ t:'hello', ...f }); });
+    if (vote && vote.open) fake.forEach(f => { if (Math.random() < .12) onPublic({ t:'vote', zone:['Z1','Z2','Z3','Z4','Z5','Z5','Z6','Z4'][Math.floor(Math.random()*8)], ...f }); });
+  }, 700);
+  $('lvSim').textContent = 'Ensayo: detener público simulado';
+  logEvent('info', 'Ensayo: 70 asistentes simulados conectados');
+}
+
+/* ---------- Controles y atajos ---------- */
+function syncLiveForm() {
+  $('lvBroker').value = LIVE.broker; $('lvUrl').value = LIVE.url; $('lvSala').value = LIVE.sala;
+  $('lvAD').checked = LIVE.autoDrone; $('lvAE').checked = LIVE.autoEvac; $('lvBE').checked = LIVE.blockExits; $('lvVS').value = LIVE.voteSecs;
+}
+syncLiveForm();
+$('lvCfg').onclick = () => { $('lvPanel').hidden = !$('lvPanel').hidden; };
+$('lvBroker').onchange = e => { LIVE.broker = e.target.value.trim() || LIVE_DEF.broker; saveLive(); };
+$('lvUrl').onchange = e => { LIVE.url = e.target.value.trim(); saveLive(); };
+$('lvSala').onchange = e => { LIVE.sala = (e.target.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') || newSala()).slice(0, 12); syncLiveForm(); saveLive(); if (mqOn) liveConnect(); };
+$('lvNew').onclick = () => { LIVE.sala = newSala(); syncLiveForm(); saveLive(); if (mqOn) liveConnect(); };
+$('lvAD').onchange = e => { LIVE.autoDrone = e.target.checked; saveLive(); };
+$('lvAE').onchange = e => { LIVE.autoEvac = e.target.checked; saveLive(); };
+$('lvBE').onchange = e => { LIVE.blockExits = e.target.checked; saveLive(); };
+$('lvVS').onchange = e => { LIVE.voteSecs = Math.min(120, Math.max(5, +e.target.value || 20)); saveLive(); };
+$('lvConn').onclick = () => mqOn ? liveDisconnect() : liveConnect();
+$('lvQR').onclick = () => showQR($('qr').hidden);
+$('qr').onclick = () => showQR(false);
+$('lvVote').onclick = startVote;
+$('lvDrone').onclick = () => { if (lastAlarm) droneGo(lastAlarm.x, lastAlarm.y, lastAlarm.zid); else droneGo(...FIRE_SPOT.Z5, 'Z5'); };
+$('lvMute').onclick = () => { muted = !muted; setLiveStatus(); logEvent('info', muted ? 'Participación del público en pausa' : 'Participación del público reanudada'); publishState(); };
+$('lvSim').onclick = toggleSimPublic;
+addEventListener('keydown', e => {
+  if (VIEWER) return;
+  if (e.target.closest('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'q') showQR($('qr').hidden);
+  else if (k === 'v') startVote();
+  else if (k === 'd') $('lvDrone').click();
+  else if (k === 'r') rearm();
+  else if (k === 'm') $('lvMute').click();
+  else if (k === 'e') startEvac();
+  else if (k === 'f') document.body.classList.toggle('present');
+  else if (/^[1-6]$/.test(k)) raiseAlarm('Z' + k, { by:'el ponente' }) || logEvent('info', `Z${k} ya está en alarma`);
+  else return;
+  e.preventDefault();
+});
+setLiveStatus();
+renderLiveCount();
+if (!VIEWER && publicURL() && window.mqtt) liveConnect();
+
+function liveTick(now) {
+  if (VIEWER) return;
+  if (vote && vote.open) { renderVote(); if (now >= vote.ends) endVote(); }
+  const busy = (vote && vote.open) || SIMV.running || livePhase() === 'alarm';
+  if (now - lastPub > (busy ? 1000 : 8000)) publishState();
+  if (mqOn && now - lastSync > (busy || DR.state !== 'idle' || SIMV.agents.length ? 250 : 1000)) publishSync(now);
+}
+
+/* =====================================================================
+   MODO ESPECTADOR (?ver=1&sala=XXXX): el gemelo en el móvil del público,
+   sincronizado con la pantalla del ponente. Solo escucha, nunca publica.
+   ===================================================================== */
+const DSTATES = ['idle','takeoff','cruise-up','cruise','descend','orbit','return-up','return','land'];
+let lastSync = 0;
+function publishSync(now) {          // ponente → móviles: dron, personas y cámara
+  lastSync = now;
+  const v = DR.pos, r2 = n => Math.round(n*100)/100;
+  const msg = {
+    cam:[camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z].map(r2),
+    dr:[r2(v.x + W/2), r2(v.z + D/2), r2(v.y), r2(DR.yaw), DSTATES.indexOf(DR.state), DR.tgt ? r2(DR.tgt.x) : null, DR.tgt ? r2(DR.tgt.y) : null],
+    ag:[],
+  };
+  SIMV.agents.slice(0, 200).forEach(a => {
+    if (a.state === 'out') { msg.ag.push(0, 0, 3); return; }
+    const [x, y] = agentXY(a); msg.ag.push(Math.round(x*10), Math.round(y*10), a.state === 'wait' ? 0 : a.state === 'move' ? 1 : 2);
+  });
+  mq.publish(topicBase() + '/sync', JSON.stringify(msg), { qos:0 });
+}
+
+let vw = null;
+if (VIEWER) {
+  const q = new URLSearchParams(location.search);
+  vw = { sala:(q.get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), broker:q.get('b') || LIVE_DEF.broker,
+         follow:false, camT:null, dr:null, ag:null, agPos:[], st:null, pipOff:false };
+  if (window.self !== window.top) document.body.classList.add('embedded');
+  document.body.appendChild(card);                       // la ficha pasa a ser una hoja inferior
+  EV.showMap = false; evacGroup.visible = false;
+  pipEl.hidden = true;
+  if (camera.aspect < 1) { HOME.pos.set(-34, 50, 62); camera.fov = 58; camera.position.copy(HOME.pos); camera.updateProjectionMatrix(); }
+  const setFollow = on => { vw.follow = on; $('vwFollow').classList.toggle('on', on); };
+  $('vwFollow').onclick = () => setFollow(!vw.follow);
+  controls.addEventListener('start', () => { if (vw.follow && !anim) setFollow(false); });
+  $('vwRoutes').onclick = () => { EV.showMap = !EV.showMap; evacGroup.visible = EV.showMap; $('vwRoutes').classList.toggle('on', EV.showMap); };
+  $('vwCam').onclick = () => { vw.pipOff = !vw.pipOff; $('vwCam').classList.toggle('on', !vw.pipOff); };
+  $('vwHome').onclick = () => { setFollow(false); flyTo(HOME.pos.clone(), HOME.tgt.clone()); };
+  if (!vw.sala) $('vwState').textContent = 'Falta el código de sala';
+  else if (!window.mqtt) $('vwState').textContent = 'Sin conexión (requiere internet)';
+  else {
+    const c = mqtt.connect(vw.broker, { clientId:'ver-' + Math.random().toString(16).slice(2, 10), keepalive:30, reconnectPeriod:3000, connectTimeout:8000, clean:true });
+    const base = `gemelo-nave-pci/${vw.sala}`;
+    c.on('connect', () => { c.subscribe([base + '/state', base + '/sync']); $('vwDot').className = 'on'; if (!vw.st) $('vwState').textContent = 'Esperando al ponente…'; });
+    c.on('close', () => { $('vwDot').className = ''; $('vwState').textContent = 'Reconectando…'; });
+    c.on('message', (t, p) => { let m; try { m = JSON.parse(p.toString()); } catch (e) { return; }
+      if (t.endsWith('/state')) applyState(m); else if (t.endsWith('/sync')) applySync(m); });
+  }
+}
+function applyState(st) {
+  vw.st = st;
+  const want = new Set((st.zones || []).filter(z => z.st === 'alarma').map(z => z.id));
+  const have = new Set(Object.keys(sim.zones).filter(k => sim.zones[k] === 'alarma'));
+  if ([...have].some(z => !want.has(z))) { simReset(); refreshStatus(); renderSim(); have.clear(); }
+  const main = st.alarm && st.alarm.zone;
+  [...want].sort((a, b) => (b === main) - (a === main)).forEach(z => {
+    if (sim.zones[z] !== 'alarma') raiseAlarm(z, z === main ? { equip:st.alarm.equip, by:st.alarm.by } : {});
+  });
+  if (lastAlarm && st.alarm && lastAlarm.zid === st.alarm.zone && lastAlarm.confirms !== (st.alarm.confirms || 0)) { lastAlarm.confirms = st.alarm.confirms || 0; updateBanner(); }
+  const bl = [...(st.exitsBlocked || [])].sort().join(',');
+  if (bl !== [...EV.blocked].sort().join(',')) { EV.blocked = new Set(st.exitsBlocked || []); recompute(); }
+  $('vwState').textContent = want.size ? `ALARMA · ${[...want].join(', ')}` : st.phase === 'vote' ? 'Votación en curso' : 'Central en reposo';
+  $('vwState').className = want.size ? 'al' : '';
+  const e = st.evac;
+  $('vwEvac').textContent = e ? `Evacuación ${e.out}/${e.total} · ${mmss(e.t)}` : `${st.n || 0} conectados`;
+}
+function applySync(m) {
+  if (m.cam) vw.camT = m.cam;
+  if (m.dr) { const [x, y, h, yaw, si, tx, ty] = m.dr; vw.dr = { p:P(x, y, h), yaw, st:DSTATES[si] || 'idle', tgt:tx !== null ? { x:tx, y:ty } : null }; }
+  if (m.ag) {
+    const n = m.ag.length / 3; vw.ag = m.ag;
+    if (vw.agPos.length !== n) vw.agPos = Array.from({ length:n }, (_, i) => ({ x:m.ag[i*3]/10, y:m.ag[i*3+1]/10 }));
+    bodyIM.count = headIM.count = Math.min(n, 600);
+  }
+}
+function viewerTick(now, dt) {
+  if (vw.dr) {
+    DR.pos.lerp(vw.dr.p, Math.min(1, dt*5)); DR.yaw = vw.dr.yaw; DR.state = vw.dr.st;
+    if (vw.dr.tgt) DR.tgt = { ...(DR.tgt || {}), x:vw.dr.tgt.x, y:vw.dr.tgt.y };
+  }
+  pipEl.hidden = DR.state === 'idle' || vw.pipOff;
+  if (vw.ag && vw.ag.length) {
+    const d = vw.ag, k = Math.min(1, dt*6);
+    vw.agPos.forEach((p, i) => {
+      const s = d[i*3+2];
+      if (s === 3) _m4.compose(new THREE.Vector3(), _q, _s0);
+      else { p.x += (d[i*3]/10 - p.x)*k; p.y += (d[i*3+1]/10 - p.y)*k; _m4.compose(P(p.x, p.y, 0), _q, _s1); bodyIM.setColorAt(i, AG_COL[s === 0 ? 'wait' : s === 1 ? 'move' : 'queue']); }
+      bodyIM.setMatrixAt(i, _m4); headIM.setMatrixAt(i, _m4);
+    });
+    bodyIM.instanceMatrix.needsUpdate = headIM.instanceMatrix.needsUpdate = true;
+    if (bodyIM.instanceColor) bodyIM.instanceColor.needsUpdate = true;
+  }
+  if (vw.follow && vw.camT && !anim) {
+    const c = vw.camT, k = Math.min(1, dt*3);
+    camera.position.lerp(new THREE.Vector3(c[0], c[1], c[2]), k); controls.target.lerp(new THREE.Vector3(c[3], c[4], c[5]), k);
+  }
+}
+
+/* Acceso de depuración desde la consola */
+window.gemelo = { vw: () => vw, VIEWER, select, markers: () => markers, flyTo, camera, controls, P, EV, evr: () => EVR, startEvac, simv: SIMV, raiseAlarm, rearm, startVote, onPublic, LIVE, liveConnect, DR, droneGo, showQR, toggleSimPublic };
+
+/* ---------- Bucle ---------- */
+const clock = document.getElementById('clock');
+setInterval(() => clock.textContent = new Date().toLocaleTimeString('es-ES'), 1000);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); labelRenderer.setSize(innerWidth, innerHeight);
+});
+
+const losRay = new THREE.Raycaster();
+let lastNow = null;
+const ease = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+renderer.setAnimationLoop(now => {
+  if (anim) {
+    const t = Math.min(1, (now - anim.s)/anim.dur), k = ease(t);
+    camera.position.lerpVectors(anim.p0, anim.p1, k);
+    controls.target.lerpVectors(anim.t0, anim.t1, k);
+    if (t === 1) anim = null;
+  }
+  // Fachadas en corte: se aclaran las que quedan entre la cámara y el interior
+  // y cualquier muro que se cruce entre la cámara y el punto que se mira
+  const toT = controls.target.clone().sub(camera.position), dist = toT.length();
+  losRay.set(camera.position, toT.normalize()); losRay.far = dist;
+  const blocking = new Set(wallGroup.visible ? losRay.intersectObjects(wallMeshes, false).map(h => h.object.userData.fade) : []);
+  fadeList.forEach(f => {
+    const outside = f.axis && (camera.position[f.axis] - f.c) * f.out > 0 && camera.position.y < 70;
+    const target = outside || blocking.has(f) ? .14 : f.base;
+    f.mat.opacity += (target - f.mat.opacity) * .15;
+    f.mat.depthWrite = f.mat.opacity > .9;
+  });
+  simTick(now);
+  const dtR = lastNow === null ? 0 : Math.min((now - lastNow) / 1000, .1); lastNow = now;
+  evacTick(now, dtR);
+  droneTick(now, dtR);
+  liveTick(now);
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+  renderPip();
+});
+
+</script>
+</body>
+</html>
